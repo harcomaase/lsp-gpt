@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, io::Write};
 
 use lsp_server::{Connection, Message, Response};
 use lsp_types::{
@@ -9,19 +9,13 @@ use lsp_types::{
 // the initial version is very much taken from the lsp-server example:
 // https://github.com/rust-lang/rust-analyzer/blob/master/lib/lsp-server/examples/goto_def.rs
 fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
-    eprintln!("language server starting");
+    log("language server starting");
 
     let (connection, io_threads) = Connection::stdio();
 
     let server_capabilities = serde_json::to_value(&ServerCapabilities {
         completion_provider: Some(lsp_types::CompletionOptions {
-            resolve_provider: Some(true),
-            trigger_characters: None,
-            all_commit_characters: None,
-            work_done_progress_options: lsp_types::WorkDoneProgressOptions {
-                work_done_progress: None,
-            },
-            completion_item: None,
+            ..Default::default()
         }),
         ..Default::default()
     })
@@ -30,9 +24,19 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
     main_loop(connection, initialization_params)?;
     io_threads.join()?;
 
-    eprintln!("language server stopping");
+    log("language server stopping");
 
     Ok(())
+}
+
+fn log(log: &str) {
+    eprintln!("{log}");
+    let mut file = std::fs::File::options()
+        .append(true)
+        .create(true)
+        .open("/tmp/lsp-gpt.log")
+        .unwrap();
+    writeln!(&mut file, "{:?}: {log}", std::time::SystemTime::now()).unwrap();
 }
 
 fn main_loop(
@@ -40,24 +44,29 @@ fn main_loop(
     params: serde_json::Value,
 ) -> Result<(), Box<dyn Error + Sync + Send>> {
     let _params: InitializeParams = serde_json::from_value(params).unwrap();
-    eprintln!("connection established, waiting for messages");
+    log("connection established, waiting for messages");
     for msg in &connection.receiver {
-        eprintln!("got msg: {msg:?}");
+        log(&format!("got msg: {msg:?}"));
         match msg {
             Message::Request(req) => {
                 if connection.handle_shutdown(&req)? {
                     return Ok(());
                 }
-                eprintln!("got request: {req:?}");
+                log(&format!("got request: {req:?}"));
 
                 match req.method.as_str() {
                     "textDocument/completion" => {
                         let id = req.id;
                         let completion: CompletionParams = serde_json::from_value(req.params)?;
-                        eprintln!("completion params: {completion:?}");
+                        log(&format!("completion params: {completion:?}"));
                         let mut completion_items = Vec::new();
                         completion_items.push(CompletionItem {
-                            label: "test".to_string(),
+                            label: "hello from lsp-gpt".to_string(),
+                            kind: Some(CompletionItemKind::KEYWORD),
+                            ..Default::default()
+                        });
+                        completion_items.push(CompletionItem {
+                            label: "Hallo Charlotte ^^".to_string(),
                             kind: Some(CompletionItemKind::KEYWORD),
                             ..Default::default()
                         });
@@ -71,14 +80,14 @@ fn main_loop(
                         continue;
                     }
 
-                    _ => eprintln!(""),
+                    _ => log(&format!("unimplemented method: {}", req.method.as_str())),
                 }
             }
             Message::Response(resp) => {
-                eprintln!("got response: {resp:?}");
+                log(&format!("got response: {resp:?}"));
             }
             Message::Notification(not) => {
-                eprintln!("got notification: {not:?}");
+                log(&format!("got notification: {not:?}"));
             }
         }
     }

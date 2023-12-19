@@ -1,0 +1,21 @@
+{
+	"name": "lsp-gpt-client-vscode",
+	"description": "test client for the lsp-gpt language server",
+	"author": "@harcomaase",
+	"license": "MIT",
+	"version": "0.1.0",
+	"publisher": "harcomaase",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/harcomaase/lsp-gpt"
+	},
+	"engines": {
+		"vscode": "^1.85.0"
+	},
+	"dependencies": {
+		"vscode-languageclient": "^9.0.1",
+		"@types/vscode": "^1.85.0"
+	},
+	"main": "./extension.js",
+	"activationEvents": ["onLanguage:plantuml","onLanguage:puml"]
+}
