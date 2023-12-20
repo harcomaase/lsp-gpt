@@ -126,9 +126,11 @@ The file content will instead be sent in a `notification` event of the types `te
 
 For example the following 3 messages to the GPT-4 API...
 
-```${insert prompt from above}```
-
 ```
+${insert prompt from above}
+```
+
+```json
 {
   "method": "textDocument/didOpen",
   "params": {
@@ -142,7 +144,7 @@ For example the following 3 messages to the GPT-4 API...
 }
 ```
 
-```
+```json
 {
   "id": 5,
   "method": "textDocument/completion",
@@ -163,7 +165,7 @@ For example the following 3 messages to the GPT-4 API...
 
 ... result in a meaningful response:
 
-```
+```json
 {
   "id": "chatcmpl-8XyHZ9yiVkIXX8SU4SCU3zjBgnGp5",
   "choices": [
@@ -186,7 +188,7 @@ For example the following 3 messages to the GPT-4 API...
 
 From the `content` atribute in the response, we can simply parse and forward the response to the language client:
 
-```
+```json
 {
   "id": 1,
   "result": [
@@ -229,5 +231,5 @@ From the `content` atribute in the response, we can simply parse and forward the
 }
 ```
 
-The downside is, that these invocations take quite a while: roughly between 8 and 14 seconds. Additionally, the token and cost usage should be investigated.
+The downside is, that these invocations take quite a while: roughly between 8 and 14 seconds. Additionally, the token and cost usage should be investigated. But it's possible!
 
