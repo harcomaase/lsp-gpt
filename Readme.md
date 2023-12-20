@@ -63,3 +63,160 @@ nvim integration is well documented: help lsp
 
 now we can concentrate on sending requests to the chatGPT API.
 
+Testing in the terminal:
+
+```bash
+curl https://api.openai.com/v1/chat/completions -H "Content-Type: application/json" -H "Authorization: Bearer $OPENAI_API_KEY" -H "OpenAI-Organization: $OPENAI_ORG_ID" -d '{"model":"gpt-4","messages":[{"role":"user","content":"Hello world... I mean: hello chatGPT!"}],"temperature":0.2}'
+```
+
+OpenAI now offers the GPT builder, that helps creating specialised versions of chatGPT in order to fulfill
+a specific task. According to the examples, it can help with idea brainstorming or code analysis,
+and we can probably instruct it to act as a language server!
+
+It can easily instructed to act as a language server, and the UI shows the generated prompts that make
+GPT-4 behave differently. As these custom GPTs are not available via the API yet, we can at least
+use the generated prompts as inspiration for the prompts of our language server.
+
+For example the following prompt: `Make a language server that conforms to the LSP specification, and handles the plantuml file format.`, results in these instructions for the custom GPT:
+
+```
+Role and Goal: lsp-gpt-plantuml is a dedicated language server for PlantUML, conforming to the Language Server Protocol (LSP). It assists with PlantUML diagrams, providing expertise in syntax, structure, and best practices.
+
+Constraints: This GPT focuses solely on PlantUML and adheres to LSP standards. It does not support other diagram types or programming languages.
+
+Guidelines: Responses should be clear, concise, and technically accurate. They should offer specific guidance on PlantUML syntax, diagram optimization, and best practices, all encoded in JSON format to align with LSP specifications.
+
+Clarification: When queries are ambiguous, lsp-gpt-plantuml should request specific details about the PlantUML diagram or issue to provide the most accurate, JSON-encoded assistance.
+
+Personalization: The GPT maintains a professional, informative tone, targeting users who seek technical assistance with PlantUML diagrams, with all responses formatted according to LSP specifications in JSON.
+```
+
+We will re-use this in our GPT-4 API integration for the prompt engineering:
+
+```
+You act as a language server that conforms to the LSP specification, and handles the plantuml file format. You are call 'lsp'gpt'plantuml'. You will be queried via API, meaning all responses should be in the JSON format.
+
+Role and Goal: lsp-gpt-plantuml is a dedicated language server for PlantUML, conforming to the Language Server Protocol (LSP). It assists with PlantUML diagrams, providing expertise in syntax, structure, and best practices.
+
+Constraints: This GPT focuses solely on PlantUML and adheres to LSP standards. It does not support other diagram types or programming languages.
+
+Guidelines: Responses should be clear, concise, and technically accurate. They should offer specific guidance on PlantUML syntax, diagram optimization, and best practices, all encoded in JSON format to align with LSP specifications.
+
+Clarification: When queries are ambiguous, lsp-gpt-plantuml should request specific details about the PlantUML diagram or issue to provide the most accurate, JSON-encoded assistance.
+
+Personalization: The GPT maintains a professional, informative tone, targeting users who seek technical assistance with PlantUML diagrams, with all responses formatted according to LSP specifications in JSON.
+```
+
+Since the GPT-4 API has no concept of memory, we need to include this prompt in every request.
+
+The next surprise is a detail in the LSP specification: the event that requests a completion/suggestion does not submit the contents of the file, but instead the the file location in URI format.
+We can tune the capabilities of our language server to indicate to the client to send the file contents with its requests, which does not change the content of the formerly mentioned completion/suggestion request.
+The file content will instead be sent in a `notification` event of the types `textDocument/didOpen` and `textDocument/didChange`. We will buffer the latest of these events, and pass it along with the initial prompt in our request to the GPT-4 API.
+
+For example the following 3 messages to the GPT-4 API...
+
+```${insert prompt from above}```
+
+```
+{
+  "method": "textDocument/didOpen",
+  "params": {
+    "textDocument": {
+      "languageId": "plantuml",
+      "text": "@startuml example\n\nactor Alice\nactor Bob\n\nAlice -> Bob : hello\nBob --> Alice : hello Alice!\n\n@enduml\n",
+      "uri": "file:///home/marco/dev/projects/lsp-gpt/assets/example.puml",
+      "version": 7
+    }
+  }
+}
+```
+
+```
+{
+  "id": 5,
+  "method": "textDocument/completion",
+  "params": {
+    "context": {
+      "triggerKind": 1
+    },
+    "position": {
+      "character": 0,
+      "line": 7
+    },
+    "textDocument": {
+      "uri": "file:///home/marco/dev/projects/lsp-gpt/assets/example.puml"
+    }
+  }
+}
+```
+
+... result in a meaningful response:
+
+```
+{
+  "id": "chatcmpl-8XyHZ9yiVkIXX8SU4SCU3zjBgnGp5",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\n  \"id\": 1,\n  \"result\": [\n    {\n      \"label\": \"actor\",\n      \"kind\": 1,\n      \"detail\": \"Defines a new actor\",\n      \"documentation\": \"Use 'actor' to define a new actor in your diagram. Syntax: actor ActorName\",\n      \"insertText\": \"actor \"\n    },\n    {\n      \"label\": \"Alice\",\n      \"kind\": 1,\n      \"detail\": \"Existing actor\",\n      \"documentation\": \"Alice is an existing actor in your diagram. You can use this actor for new interactions.\",\n      \"insertText\": \"Alice\"\n    },\n    {\n      \"label\": \"Bob\",\n      \"kind\": 1,\n      \"detail\": \"Existing actor\",\n      \"documentation\": \"Bob is an existing actor in your diagram. You can use this actor for new interactions.\",\n      \"insertText\": \"Bob\"\n    },\n    {\n      \"label\": \"->\",\n      \"kind\": 1,\n      \"detail\": \"Interaction\",\n      \"documentation\": \"Use '->' to define a new interaction between two actors. Syntax: Actor1 -> Actor2 : Message\",\n      \"insertText\": \"->\"\n    },\n    {\n      \"label\": \"-->\",\n      \"kind\": 1,\n      \"detail\": \"Interaction\",\n      \"documentation\": \"Use '-->' to define a new interaction between two actors. Syntax: Actor1 --> Actor2 : Message\",\n      \"insertText\": \"-->\"\n    }\n  ]\n}"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 381,
+    "completion_tokens": 307,
+    "total_tokens": 688
+  }
+}
+```
+
+From the `content` atribute in the response, we can simply parse and forward the response to the language client:
+
+```
+{
+  "id": 1,
+  "result": [
+    {
+      "label": "actor",
+      "kind": 1,
+      "detail": "Defines a new actor",
+      "documentation": "Use 'actor' to define a new actor in your diagram. Syntax: actor ActorName",
+      "insertText": "actor "
+    },
+    {
+      "label": "Alice",
+      "kind": 1,
+      "detail": "Existing actor",
+      "documentation": "Alice is an existing actor in your diagram. You can use this actor for new interactions.",
+      "insertText": "Alice"
+    },
+    {
+      "label": "Bob",
+      "kind": 1,
+      "detail": "Existing actor",
+      "documentation": "Bob is an existing actor in your diagram. You can use this actor for new interactions.",
+      "insertText": "Bob"
+    },
+    {
+      "label": "->",
+      "kind": 1,
+      "detail": "Interaction",
+      "documentation": "Use '->' to define a new interaction between two actors. Syntax: Actor1 -> Actor2 : Message",
+      "insertText": "->"
+    },
+    {
+      "label": "-->",
+      "kind": 1,
+      "detail": "Interaction",
+      "documentation": "Use '-->' to define a new interaction between two actors. Syntax: Actor1 --> Actor2 : Message",
+      "insertText": "-->"
+    }
+  ]
+}
+```
+
+The downside is, that these invocations take quite a while: roughly between 8 and 14 seconds. Additionally, the token and cost usage should be investigated.
+
