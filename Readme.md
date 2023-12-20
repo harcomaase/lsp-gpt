@@ -16,16 +16,29 @@ chatGPT.
 
 # unsorted
 
-It seems like the language server is invoked by the the language client (LC) in
+It seems like the language server is invoked/started by the the language client (LC) in
 the editor.
 
 LS implementation currently done in rust, since the library and examples are
 extensive. Can be done in Java for the actual project, since code from the
 plantUML project can be re-used more easily.
 
+Easiest if language server is available on PATH. In case the rust toolchain (`rustup`) is installed,
+it can be done via: `cargo install --force --path .`
+
 LS integration in Visual Studio Code requires a vsc extension. documentation
 available here: 
 https://code.visualstudio.com/api/language-extensions/language-server-extension-guide
+
+Things that are needed in order to integrate the LSP into vsc:
+- create extension
+- create launch configuration in order to run extension directly in vsc
+- implement minimalistic lsp client
+- add contributions to extension manifest (`package.json`)
+  - add language `plantuml`
+  - define file extensions
+  - link configuration file
+  - configuration file defines comment and brace syntax
 
 ```bash
 cd clients/vscode/
@@ -34,6 +47,8 @@ npm install
 npm install -g @vscode/vsce
 # generate .vsix extension file
 vsce package
+
+# manually install the extension via vsix file
 ```
 
 Alternatively, open Debug Session (`Ctrl` `Shift` `D`), select `Run lsp-gpt extension`
@@ -41,7 +56,7 @@ and a new window with the extension installed will open.
 
 
 nvim integration is well documented: help lsp
-- install lsp-gpt (in order to get it executable for the user): `cargo install --force --path .`
+- ensure the language server is available and executable for the user on the PATH
 - run in nvim: `:lua vim.lsp.start({ name = 'lsp-gpt', cmd = { 'lsp-gpt' }, root_dir = vim.loop.cwd(), })`
 
 ## the chatGPT API
