@@ -8,8 +8,8 @@
         "runtimeExecutable": "${execPath}",
         "args": [
           "--extensionDevelopmentPath=${workspaceFolder}/clients/vscode",
-          // "--disable-extensions",
-          "${workspaceRoot}/assets/example.plantuml"
+          "--profile-temp", // temporary profile in order to disable extensions
+          "${workspaceRoot}/assets/" // open folder with plantuml files
         ]
       }
     ]

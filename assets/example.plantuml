@@ -1,9 +1,0 @@
-@startuml example
-
-actor Alice
-actor Bob
-
-Alice -> Bob : hello
-Bob --> Alice : hello Alice!
-
-@enduml

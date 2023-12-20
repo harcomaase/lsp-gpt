@@ -1,4 +1,4 @@
-use std::{error::Error, io::Write};
+use std::error::Error;
 
 use lsp_server::{Connection, Message, Response};
 use lsp_types::{
@@ -30,13 +30,15 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
 }
 
 fn log(log: &str) {
-    eprintln!("{log}");
+    eprintln!("{:?}: {log}", std::time::SystemTime::now());
+    /*
     let mut file = std::fs::File::options()
         .append(true)
         .create(true)
         .open("/tmp/lsp-gpt.log")
         .unwrap();
     writeln!(&mut file, "{:?}: {log}", std::time::SystemTime::now()).unwrap();
+    */
 }
 
 fn main_loop(

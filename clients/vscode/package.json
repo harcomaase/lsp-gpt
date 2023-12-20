@@ -17,5 +17,19 @@
 		"@types/vscode": "^1.85.0"
 	},
 	"main": "./extension.js",
-	"activationEvents": ["onLanguage:plantuml","onLanguage:puml"]
+	"contributes": {
+		"languages": [
+			{
+				"id": "plantuml",
+				"extensions": [
+					".puml",
+					".plantuml"
+				],
+				"aliases": [
+					"PlantUML"
+				],
+				"configuration": "./language-configuration.json"
+			}
+		]
+	}
 }
