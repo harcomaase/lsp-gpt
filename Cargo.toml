@@ -12,4 +12,4 @@ serde = { version = "1.0", features = ["derive"] }
 
 lsp-types = "0.95"
 
-reqwest = "0.11"
+reqwest = { version = "0.11", features = ["blocking", "json"] }
