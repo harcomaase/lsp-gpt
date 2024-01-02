@@ -2,7 +2,8 @@ use std::error::Error;
 
 use lsp_server::{Connection, Message};
 use lsp_types::{
-    DidOpenTextDocumentParams, InitializeParams, ServerCapabilities, TextDocumentSyncKind,
+    DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams, ServerCapabilities,
+    TextDocumentSyncKind,
 };
 use reqwest::{header, Method};
 use serde::{Deserialize, Serialize};
@@ -47,8 +48,8 @@ struct GptResponseUsage {
 fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
     log("language server starting");
 
-    let api_key = std::env::var("OPENAI_API_KEY")?;
-    let api_company_id = std::env::var("OPENAI_ORG_ID")?;
+    let api_key = from_env("OPENAI_API_KEY");
+    let api_company_id = from_env("OPENAI_ORG_ID");
 
     let (connection, io_threads) = Connection::stdio();
 
@@ -69,6 +70,10 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
     log("language server stopping");
 
     Ok(())
+}
+
+fn from_env(key: &str) -> String {
+    std::env::var(key).expect(&format!("{key} not set as environment variable"))
 }
 
 fn log(log: &str) {
@@ -95,18 +100,7 @@ fn main_loop(
     let client = reqwest::blocking::Client::builder().build()?;
     let auth = format!("Bearer {}", api_key);
 
-    let initial_prompt = "You act as a language server that conforms to the LSP specification, and handles the plantuml file format. You are call 'lsp-gpt-plantuml'. You will be queried via API, meaning all responses should be in the JSON format.
-
-Role and Goal: lsp-gpt-plantuml is a dedicated language server for PlantUML, conforming to the Language Server Protocol (LSP). It assists with PlantUML diagrams, providing expertise in syntax, structure, and best practices.
-
-Constraints: This GPT focuses solely on PlantUML and adheres to LSP standards. It does not support other diagram types or programming languages.
-
-Guidelines: Responses should be clear, concise, and technically accurate. They should offer specific guidance on PlantUML syntax, diagram optimization, and best practices, all encoded in JSON format to align with LSP specifications.
-
-Clarification: When queries are ambiguous, lsp-gpt-plantuml should request specific details about the PlantUML diagram or issue to provide the most accurate, JSON-encoded assistance.
-
-Personalization: The GPT maintains a professional, informative tone, targeting users who seek technical assistance with PlantUML diagrams, with all responses formatted according to LSP specifications in JSON.
-";
+    let initial_prompt = std::fs::read_to_string("./assets/initial_prompt.txt")?;
 
     let mut latest_text_document_item = None;
 
@@ -210,6 +204,20 @@ Personalization: The GPT maintains a professional, informative tone, targeting u
                             }
                             Err(err) => {
                                 log(&format!("can not parse didOpen notification {err}"));
+                                ()
+                            }
+                        }
+                    }
+                    "textDocument/didChange" => {
+                        match serde_json::from_value::<DidChangeTextDocumentParams>(not.params) {
+                            Ok(text_document) => {
+                                //let x = text_document.content_changes;
+                                log(&format!("received changes: {:?}", &text_document));
+                                //latest_text_document_item = Some(x);
+                                ()
+                            }
+                            Err(err) => {
+                                log(&format!("can not parse didChange notification {err}"));
                                 ()
                             }
                         }
