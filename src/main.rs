@@ -100,7 +100,7 @@ fn main_loop(
     let client = reqwest::blocking::Client::builder().build()?;
     let auth = format!("Bearer {}", api_key);
 
-    let initial_prompt = std::fs::read_to_string("./assets/initial_prompt.txt")?;
+    let initial_prompt = std::fs::read_to_string("/home/marco/dev/projects/lsp-gpt/assets/initial_prompt.txt")?;
 
     let mut latest_text_document_item = None;
 

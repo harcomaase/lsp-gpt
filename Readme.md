@@ -31,6 +31,13 @@ LS integration in Visual Studio Code requires a vsc extension. documentation
 available here: 
 https://code.visualstudio.com/api/language-extensions/language-server-extension-guide
 
+To install the required modules etc.:
+
+```bash
+sudo apt-get install npm nodejs
+npm install vscode-languageclient
+```
+
 Things that are needed in order to integrate the LSP into vsc:
 - create extension
 - create launch configuration in order to run extension directly in vsc
