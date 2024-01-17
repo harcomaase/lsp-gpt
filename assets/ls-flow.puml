@@ -1,0 +1,30 @@
+@startuml language server flow
+
+actor user
+participant editor
+participant client as "language client /\nvscode extension"
+participant server as "language server"
+
+user -> editor : open file
+editor -> editor : load file
+editor -> client : start
+client -> server : invoke with options
+server --> client : establish with capabilities
+
+
+== opening / modifying files ==
+editor -> server : notify: document opened
+note right: file contents provided\nin call
+server -> server : cache text contents
+note left: no call to GPT API
+
+== request completion ==
+editor -> server : request completion
+note right: only path to file provided,\nno contents
+server -> server : load latest cached file content
+server -> api : send prompt, latest file contents\nand request forwarded from editor
+api --> api : this will take some time
+api --> server: response in JSON format according to LSP
+server --> editor : plain forwarding of response
+
+@enduml

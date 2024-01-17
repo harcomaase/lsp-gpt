@@ -64,6 +64,13 @@ vsce package
 Alternatively, open Debug Session (`Ctrl` `Shift` `D`), select `Run lsp-gpt extension`
 and a new window with the extension installed will open.
 
+Hint: starting the vscode process with the environment variables needed in the
+language server will work, since sub-processes will inherit the environment:
+
+```bash
+OPENAI_API_KEY=abc OPENAI_ORG_ID=xyz code
+```
+
 
 nvim integration is well documented: help lsp
 - ensure the language server is available and executable for the user on the PATH
@@ -91,7 +98,7 @@ OpenAI now offers the GPT builder, that helps creating specialised versions of c
 a specific task. According to the examples, it can help with idea brainstorming or code analysis,
 and we can probably instruct it to act as a language server!
 
-It can easily instructed to act as a language server, and the UI shows the generated prompts that make
+It can easily be instructed to act as a language server, and the UI shows the generated prompts that make
 GPT-4 behave differently. As these custom GPTs are not available via the API yet, we can at least
 use the generated prompts as inspiration for the prompts of our language server.
 
