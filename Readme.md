@@ -75,7 +75,8 @@ Since the models used by the GPT-4 API do not have memory of previous requests, 
 
 <hr />
 <hr />
-# old notes, to be removed
+
+# ⚠ old notes, to be removed ⚠
 
 ## documentation
 
