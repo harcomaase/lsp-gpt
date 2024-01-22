@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, time::Duration};
 
 use lsp_server::{Connection, Message};
 use lsp_types::{
@@ -60,6 +60,15 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
         completion_provider: Some(lsp_types::CompletionOptions {
             ..Default::default()
         }),
+        document_highlight_provider: Some(lsp_types::OneOf::Left(true)),
+        document_symbol_provider: Some(lsp_types::OneOf::Left(true)),
+        diagnostic_provider: Some(lsp_types::DiagnosticServerCapabilities::Options(
+            lsp_types::DiagnosticOptions {
+                inter_file_dependencies: false,
+                workspace_diagnostics: false,
+                ..Default::default()
+            },
+        )),
         ..Default::default()
     })
     .unwrap();
@@ -97,10 +106,13 @@ fn main_loop(
     let _params: InitializeParams = serde_json::from_value(params).unwrap();
     log("connection established, waiting for messages");
 
-    let client = reqwest::blocking::Client::builder().build()?;
+    let http_client = reqwest::blocking::Client::builder()
+        .timeout(Some(Duration::new(60, 0)))
+        .build()?;
     let auth = format!("Bearer {}", api_key);
 
-    let initial_prompt = std::fs::read_to_string("/home/marco/dev/projects/lsp-gpt/assets/initial_prompt.txt")?;
+    let initial_prompt =
+        std::fs::read_to_string("/home/marco/dev/projects/lsp-gpt/assets/initial_prompt.txt")?;
 
     let mut latest_text_document_item = None;
 
@@ -132,7 +144,7 @@ fn main_loop(
                     content: raw_msg,
                 });
 
-                let api_request = client
+                let api_request = http_client
                     .request(Method::POST, "https://api.openai.com/v1/chat/completions")
                     .header(header::CONTENT_TYPE, "application/json")
                     .header(header::AUTHORIZATION, &auth)
@@ -150,7 +162,7 @@ fn main_loop(
                     &api_request.body().unwrap()
                 ));
 
-                let api_result = client.execute(api_request)?;
+                let api_result = http_client.execute(api_request)?;
 
                 match api_result.text() {
                     Ok(response) => {
