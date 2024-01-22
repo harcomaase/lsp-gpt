@@ -66,6 +66,10 @@ Since the models used by the GPT-4 API do not have memory of previous requests, 
 
 //TODO: explain LS implementation, file contents caching
 
+- language server acts as middleware, mostly forwarding requests and responses
+- language server capabilities define what the client will call, but chatGPT can magically handle a lot of these
+- vscode does not do highlighting and diagnostics yet, though they are reported -> check why, maybe the long response time?
+
 
 ### usage in editors
 
