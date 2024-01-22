@@ -3,3 +3,4 @@ node_modules/
 secrets.txt
 package.json
 package-lock.json
+Cargo.lock
