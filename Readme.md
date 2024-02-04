@@ -182,9 +182,33 @@ updates of the file.
 
 Additionally the language server defines its capabilities, and the client can choose which of these
 capabilities it wants to use. In the beginning, only `completions` were tested (code completions or text suggestions).
-After that part was working successfully, the language server also reported the capabilities...
+After that part was working successfully, the language server also reported further capabilities from the language
+server protocol. The tested capabilities and their results are documented in the following paragraphs.
 
-//TODO: describe additional capabilities
+#### capability: document highlight provider
+
+- highlights selected (key-) words in the complete document (or range)
+- does not yet work in the editor (TODO: seems to work in addition to basic syntax highlighting only?)
+
+#### capability: diagnostic provider
+
+- shows errors and warnings in the document
+- needs extra steps, since the server pushes diagnostics to the client without the client requesting it
+- possible solution: add explicit request for diagnostics on each file change
+
+#### capability: hover provider
+
+- shows information about the token under the cursor (e.g. type of variable, signature of method)
+- works as intended, detailed information about token is returned
+
+#### capability: references provider
+
+- shows references of the selected token, e.g. usages of methods
+- request to GPT-4 API runs into timeout currently (TODO: investigate)
+
+
+TODO: describe additional capabilities
+TODO: check for problems in position encoding (code action seems to be 1 line off)
 
 ### usage in editors
 
