@@ -60,15 +60,21 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
         completion_provider: Some(lsp_types::CompletionOptions {
             ..Default::default()
         }),
-        //document_highlight_provider: Some(lsp_types::OneOf::Left(true)),
+        document_highlight_provider: Some(lsp_types::OneOf::Left(true)),
         //document_symbol_provider: Some(lsp_types::OneOf::Left(true)),
-        //diagnostic_provider: Some(lsp_types::DiagnosticServerCapabilities::Options(
-        //    lsp_types::DiagnosticOptions {
-        //        inter_file_dependencies: false,
-        //        workspace_diagnostics: false,
-        //        ..Default::default()
-        //    },
-        //)),
+        diagnostic_provider: Some(lsp_types::DiagnosticServerCapabilities::Options(
+            lsp_types::DiagnosticOptions {
+                inter_file_dependencies: false,
+                workspace_diagnostics: false,
+                ..Default::default()
+            },
+        )),
+        hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
+        references_provider: Some(lsp_types::OneOf::Left(true)),
+        code_action_provider: Some(lsp_types::CodeActionProviderCapability::Simple(true)),
+        document_formatting_provider: Some(lsp_types::OneOf::Left(true)),
+        document_range_formatting_provider: Some(lsp_types::OneOf::Left(true)),
+        rename_provider: Some(lsp_types::OneOf::Left(true)),
         semantic_tokens_provider: Some(
             lsp_types::SemanticTokensServerCapabilities::SemanticTokensOptions(
                 lsp_types::SemanticTokensOptions {
@@ -114,7 +120,7 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
                             SemanticTokenModifier::DEFAULT_LIBRARY,
                         ],
                     },
-                    range: None,
+                    range: Some(true),
                     full: Some(lsp_types::SemanticTokensFullOptions::Bool(true)),
                 },
             ),
