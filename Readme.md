@@ -168,6 +168,19 @@ From the `content` atribute in the response, we can simply parse and forward the
 }
 ```
 
+#### update: using GPT-4-turbo-preview
+
+While exploring GPT-4 usage as an API endpoint, OpenAI release a preview version
+of an enhanced GPT-4 version: GPT-4-turbo. Switching to this version unfortunately
+slightly changes the response behaviour a bit: Responses are now markdown-formatted,
+meaning the JSON payload is wrapped in a markdown code block, and GPT-4-turbo even
+adds explanation text.
+
+While adapting the initial prompt solved the issue of added explanations, it was
+not possible to have GPT-4-turbo not wrap its responses in a markdown code block.
+As first workaround, the language server will now trim markdown markup elements for
+code blocks.
+
 
 ### language server
 
@@ -204,11 +217,11 @@ server protocol. The tested capabilities and their results are documented in the
 #### capability: references provider
 
 - shows references of the selected token, e.g. usages of methods
-- request to GPT-4 API runs into timeout currently (TODO: investigate)
+- results are currently faulty: wrong line numbers are reported, not all references are found
 
 
 TODO: describe additional capabilities
-TODO: check for problems in position encoding (code action seems to be 1 line off)
+TODO: check for problems in position encoding (code action seems to be 1 line off, also references are sometimes in empty lines)
 
 ### usage in editors
 

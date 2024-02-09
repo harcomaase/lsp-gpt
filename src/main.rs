@@ -206,7 +206,7 @@ fn main_loop(
                     .header(header::AUTHORIZATION, &auth)
                     .header("OpenAI-Organization", &api_company_id)
                     .body(serde_json::to_string(&GptRequest {
-                        model: "gpt-4".to_string(),
+                        model: "gpt-4-turbo-preview".to_string(),
                         messages,
                         temperature: 0.2,
                         n: 1,
@@ -236,7 +236,14 @@ fn main_loop(
                                     .message
                                     .content
                                     .as_str();
-                                match serde_json::from_str(response_message_raw) {
+
+                                let response_message_raw_trimmed = response_message_raw
+                                    .strip_prefix("```json")
+                                    .or(Some(&response_message_raw))
+                                    .map(|r| r.strip_suffix("```").unwrap_or(r))
+                                    .unwrap();
+
+                                match serde_json::from_str(response_message_raw_trimmed) {
                                     Ok(response_message) => {
                                         // valid language server response
                                         log(&format!("all good, sending response to client: {response_message_raw}"));
