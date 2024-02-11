@@ -2,8 +2,8 @@ use std::{error::Error, time::Duration};
 
 use lsp_server::{Connection, Message};
 use lsp_types::{
-    DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams,
-    SemanticTokenModifier, SemanticTokenType, ServerCapabilities, TextDocumentSyncKind,
+    DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams, ServerCapabilities,
+    TextDocumentSyncKind,
 };
 use reqwest::{header, Method};
 use serde::{Deserialize, Serialize};
@@ -75,6 +75,7 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
         document_formatting_provider: Some(lsp_types::OneOf::Left(true)),
         document_range_formatting_provider: Some(lsp_types::OneOf::Left(true)),
         rename_provider: Some(lsp_types::OneOf::Left(true)),
+        /* semantic tokens disabled for now
         semantic_tokens_provider: Some(
             lsp_types::SemanticTokensServerCapabilities::SemanticTokensOptions(
                 lsp_types::SemanticTokensOptions {
@@ -125,6 +126,7 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
                 },
             ),
         ),
+        */
         ..Default::default()
     })
     .unwrap();
@@ -237,13 +239,9 @@ fn main_loop(
                                     .content
                                     .as_str();
 
-                                let response_message_raw_trimmed = response_message_raw
-                                    .strip_prefix("```json")
-                                    .or(Some(&response_message_raw))
-                                    .map(|r| r.strip_suffix("```").unwrap_or(r))
-                                    .unwrap();
+                                let extracted_response_message = extract_json(response_message_raw);
 
-                                match serde_json::from_str(response_message_raw_trimmed) {
+                                match serde_json::from_str(extracted_response_message) {
                                     Ok(response_message) => {
                                         // valid language server response
                                         log(&format!("all good, sending response to client: {response_message_raw}"));
@@ -303,4 +301,19 @@ fn main_loop(
         }
     }
     Ok(())
+}
+
+fn extract_json(response_message_raw: &str) -> &str {
+    let start_element = "```json\n";
+    let end_element = "\n```";
+    match response_message_raw.find(start_element) {
+        Some(start_index) => {
+            let json_content = &response_message_raw[start_index + start_element.len()..];
+            match json_content.find(end_element) {
+                Some(end_index) => &json_content[..end_index],
+                None => json_content,
+            }
+        }
+        None => response_message_raw,
+    }
 }
