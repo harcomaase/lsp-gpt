@@ -6,23 +6,25 @@
 
 This project contains a language server (LS) implementation that uses the GPT-4 API in order
 to provide suggestions according to the language server protocol (LSP) specification.
-Additionally it contains clients or usage instructions for Visual Studio Code and Neovim.
+Additionally, it contains clients or usage instructions for Visual Studio Code and Neovim.
 
 ## what is still missing?
 
 To be done before the next iteration:
 
-- explore GPT behaviour for additional LSP features: highlighting, diagnostics/errors, fixing
-- enhance prompt with few-shot learning: add possibility to provide example diagrams
-  - explore working on workspace level instead of document level only: other existing diagrams can be used as example
-- decide on direction:
-  - create a fully featured LSP (as easily as possible)
-  - train it towards meaningful completions (from examples), e.g. fitting names/identifiers, desired syntax
+- [x] explore GPT behaviour for additional LSP features: highlighting, diagnostics/errors, fixing
+- [ ] enhance prompt with few-shot learning: add possibility to provide example diagrams
+  - [ ] explore working on workspace level instead of document level only: other existing diagrams can be used as example
+  - [ ] provide examples of requests and responses in order to shape GPT output
+- [ ] decide on direction:
+  - [ ] create a fully featured language server (as easily as possible)
+  - [ ] train it towards meaningful completions (from examples), e.g. fitting names/identifiers, desired syntax
+  - [ ] write a standalone language server with the help of GPT
 
 
 ## what has been done?
 
-The following steps have been achieved on a prototype level. Details can be found in the linked sub sections.
+The following steps have been achieved on a prototype level. Details can be found in the linked subsections.
 
 1. utilised [prompt engineering](#prompt-engineering) in order to make the GPT-4 API act as language server
 1. implemented a [language server](#language-server) that forwards LSP requests to the GPT-4 API
@@ -123,7 +125,7 @@ ${insert prompt from above}
 }
 ```
 
-From the `content` atribute in the response, we can simply parse and forward the response to the language client:
+From the `content` attribute in the response, we can simply parse and forward the response to the language client:
 
 ```json
 {
@@ -170,16 +172,16 @@ From the `content` atribute in the response, we can simply parse and forward the
 
 #### update: using GPT-4-turbo-preview
 
-While exploring GPT-4 usage as an API endpoint, OpenAI release a preview version
+While exploring GPT-4 usage as an API endpoint, OpenAI released a preview version
 of an enhanced GPT-4 version: GPT-4-turbo. Switching to this version unfortunately
 slightly changes the response behaviour a bit: Responses are now markdown-formatted,
-meaning the JSON payload is wrapped in a markdown code block, and GPT-4-turbo even
+meaning the JSON payload is wrapped in a Markdown code block, and GPT-4-turbo even
 adds explanation text.
 
-While adapting the initial prompt solved the issue of added explanations, it was
-not possible to have GPT-4-turbo not wrap its responses in a markdown code block.
-As first workaround, the language server will now trim markdown markup elements for
-code blocks.
+While adapting the initial prompt solved the issue of added explanations in most cases, it was
+not possible to have GPT-4-turbo not wrap its responses in a Markdown code block.
+As first workaround, the language server will now use the JSON response within
+the Markdown markup elements for code blocks and possible explanations.
 
 
 ### language server
@@ -193,34 +195,49 @@ them along with each request. Since we need to include the message history in ea
 straightforward to send the complete file contents with each request, and completely omit partial or delta
 updates of the file.
 
-Additionally the language server defines its capabilities, and the client can choose which of these
+Additionally, the language server defines its capabilities, and the client can choose which of these
 capabilities it wants to use. In the beginning, only `completions` were tested (code completions or text suggestions).
 After that part was working successfully, the language server also reported further capabilities from the language
 server protocol. The tested capabilities and their results are documented in the following paragraphs.
 
-#### capability: document highlight provider
+#### capability: document highlight
 
 - highlights selected (key-) words in the complete document (or range)
 - does not yet work in the editor (TODO: seems to work in addition to basic syntax highlighting only?)
 
-#### capability: diagnostic provider
+#### capability: diagnostic
 
 - shows errors and warnings in the document
 - needs extra steps, since the server pushes diagnostics to the client without the client requesting it
 - possible solution: add explicit request for diagnostics on each file change
 
-#### capability: hover provider
+#### capability: hover
 
 - shows information about the token under the cursor (e.g. type of variable, signature of method)
-- works as intended, detailed information about token is returned
+- works mostly as intended, detailed information about token is returned
+- using GPT-4-turbo, the complete line is explained often
 
-#### capability: references provider
+#### capability: references
 
 - shows references of the selected token, e.g. usages of methods
 - results are currently faulty: wrong line numbers are reported, not all references are found
 
+#### capability: code action
 
-TODO: describe additional capabilities
+- show possible changes to the code, either to fix an error/warning or refactor code
+- GPT-4 offered actions, while GPT-4-turbo did not suggest a single action yet, without further prompting or examples
+
+#### capability: document formatting
+
+- allows the language server to format a document or section of it according to language formatting rules
+- does not work yet: the suggested changes lead to duplication of lines
+
+#### capability: renaming
+
+- allows renaming of symbols throughout document of complete workspace
+- does not work reliably: other symbol got renamed, and new name was inserted on blank lines
+
+
 TODO: check for problems in position encoding (code action seems to be 1 line off, also references are sometimes in empty lines)
 
 ### usage in editors
@@ -234,9 +251,9 @@ only working when it is available on `PATH`. This can easily be achieved with th
 cargo install --force --path .
 ```
 
-Additionally the OpenAI API key and the OrganisationId need to be available as environment variables for the
-editor and ultimatively the language server. Since it would be unsafe to permanently add the API key to the
-environment variables, instructions how to have them avaiable for the language server can be found in the following paragraphs.
+Additionally, the OpenAI API key and the OrganisationId need to be available as environment variables for the
+editor and ultimately the language server. Since it would be unsafe to permanently add the API key to the
+environment variables, instructions how to have them available for the language server can be found in the following paragraphs.
 
 #### Visual Studio Code
 
@@ -265,21 +282,25 @@ OPENAI_API_KEY=abc OPENAI_ORG_ID=xyz code
 
 #### Neovim
 
-The integration into Neovim for prototyping purposes is much easier: Neovim offers native support for
+The integration into Neovim for prototyping purposes is straightforward: Neovim offers native support for
 language servers, and lsp-gpt can be registered with the following command:
 
 ```vim
 :lua vim.lsp.start({ name = 'lsp-gpt', cmd = { 'lsp-gpt' }, root_dir = vim.loop.cwd(), })
 ```
 
-Similar to the extension in Visual Studio Code, we define a name for our language server, and how
+Similar to the extension in Visual Studio Code, we define a name for our language server, and the way
 the editor can invoke it: as an executable.
 
 ## first conclusions
 
-- GPT-4 is powerful and easy to use: already rather simple prompting turned it into a functional language server
+- GPT-4 is powerful and easy to use: already rather simple prompting turned it into a functional language server for completions
 - further prompts and few-shot learning can influence/improve the responses even further
 - invocations of GPT-4 API take quite a while: roughly between 8 and 14 seconds
+- GPT-4-turbo is faster for most queries (3 to 10 seconds)
+  - but needs further/different prompting, since most language server capabilities do not easily work as intended 
+- enabling multiple capabilities leads to numerous requests that can pile up quickly
+- best capability out of the box is completion (text suggestion), probably due to the document-completing nature of GPTs
 
 <hr />
 <hr />
