@@ -18,8 +18,8 @@ To be done before the next iteration:
   - [ ] provide examples of requests and responses in order to shape GPT output
 - [ ] decide on direction:
   - [ ] create a fully featured language server (as easily as possible)
-  - [ ] train it towards meaningful completions (from examples), e.g. fitting names/identifiers, desired syntax
-  - [ ] write a standalone language server with the help of GPT
+  - [x] train it towards meaningful completions (from examples), e.g. fitting names/identifiers, desired syntax
+  - [x] write a standalone language server with the help of GPT
 
 
 ## what has been done?
