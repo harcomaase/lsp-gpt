@@ -3,9 +3,8 @@ use std::{error::Error, time::Duration};
 use lsp_server::{Connection, Message};
 use lsp_types::{
     DidChangeTextDocumentParams, DidOpenTextDocumentParams, FileOperationFilter, InitializeParams,
-    PositionEncodingKind, ServerCapabilities, TextDocumentSyncKind, TextDocumentSyncOptions,
-    TextDocumentSyncSaveOptions, WorkspaceFileOperationsServerCapabilities,
-    WorkspaceServerCapabilities,
+    ServerCapabilities, TextDocumentSyncKind, TextDocumentSyncOptions, TextDocumentSyncSaveOptions,
+    WorkspaceFileOperationsServerCapabilities, WorkspaceServerCapabilities,
 };
 use reqwest::{header, Method};
 use serde::{Deserialize, Serialize};
@@ -45,7 +44,7 @@ struct GptResponseUsage {
     total_tokens: u64,
 }
 
-const BASE_FOLDER: &str = "/home/marco/dev/projects/lsp/gpt";
+const BASE_FOLDER: &str = "/home/marco/dev/projects/lsp-gpt";
 
 // the initial version is very much taken from the lsp-server example:
 // https://github.com/rust-lang/rust-analyzer/blob/master/lib/lsp-server/examples/goto_def.rs
@@ -258,7 +257,6 @@ fn create_path(subpath: &str) -> String {
 
 fn get_server_capabilities() -> serde_json::Value {
     serde_json::to_value(&ServerCapabilities {
-        position_encoding: Some(PositionEncodingKind::UTF8),
         text_document_sync: Some(lsp_types::TextDocumentSyncCapability::Options(
             TextDocumentSyncOptions {
                 open_close: Some(true),
