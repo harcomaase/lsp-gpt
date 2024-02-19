@@ -2,8 +2,10 @@ use std::{error::Error, time::Duration};
 
 use lsp_server::{Connection, Message};
 use lsp_types::{
-    DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams, ServerCapabilities,
-    TextDocumentSyncKind,
+    DidChangeTextDocumentParams, DidOpenTextDocumentParams, FileOperationFilter, InitializeParams,
+    PositionEncodingKind, ServerCapabilities, TextDocumentSyncKind, TextDocumentSyncOptions,
+    TextDocumentSyncSaveOptions, WorkspaceFileOperationsServerCapabilities,
+    WorkspaceServerCapabilities,
 };
 use reqwest::{header, Method};
 use serde::{Deserialize, Serialize};
@@ -43,6 +45,8 @@ struct GptResponseUsage {
     total_tokens: u64,
 }
 
+const BASE_FOLDER: &str = "/home/marco/dev/projects/lsp/gpt";
+
 // the initial version is very much taken from the lsp-server example:
 // https://github.com/rust-lang/rust-analyzer/blob/master/lib/lsp-server/examples/goto_def.rs
 fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
@@ -53,83 +57,7 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
 
     let (connection, io_threads) = Connection::stdio();
 
-    let server_capabilities = serde_json::to_value(&ServerCapabilities {
-        text_document_sync: Some(lsp_types::TextDocumentSyncCapability::Kind(
-            TextDocumentSyncKind::FULL,
-        )),
-        completion_provider: Some(lsp_types::CompletionOptions {
-            ..Default::default()
-        }),
-        document_highlight_provider: Some(lsp_types::OneOf::Left(true)),
-        //document_symbol_provider: Some(lsp_types::OneOf::Left(true)),
-        diagnostic_provider: Some(lsp_types::DiagnosticServerCapabilities::Options(
-            lsp_types::DiagnosticOptions {
-                inter_file_dependencies: false,
-                workspace_diagnostics: false,
-                ..Default::default()
-            },
-        )),
-        hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
-        references_provider: Some(lsp_types::OneOf::Left(true)),
-        code_action_provider: Some(lsp_types::CodeActionProviderCapability::Simple(true)),
-        document_formatting_provider: Some(lsp_types::OneOf::Left(true)),
-        document_range_formatting_provider: Some(lsp_types::OneOf::Left(true)),
-        rename_provider: Some(lsp_types::OneOf::Left(true)),
-        /* semantic tokens disabled for now
-        semantic_tokens_provider: Some(
-            lsp_types::SemanticTokensServerCapabilities::SemanticTokensOptions(
-                lsp_types::SemanticTokensOptions {
-                    work_done_progress_options: lsp_types::WorkDoneProgressOptions {
-                        work_done_progress: None,
-                    },
-                    legend: lsp_types::SemanticTokensLegend {
-                        token_types: vec![
-                            SemanticTokenType::NAMESPACE,
-                            SemanticTokenType::TYPE,
-                            SemanticTokenType::CLASS,
-                            SemanticTokenType::ENUM,
-                            SemanticTokenType::INTERFACE,
-                            SemanticTokenType::STRUCT,
-                            SemanticTokenType::TYPE_PARAMETER,
-                            SemanticTokenType::PARAMETER,
-                            SemanticTokenType::VARIABLE,
-                            SemanticTokenType::PROPERTY,
-                            SemanticTokenType::ENUM_MEMBER,
-                            SemanticTokenType::EVENT,
-                            SemanticTokenType::FUNCTION,
-                            SemanticTokenType::METHOD,
-                            SemanticTokenType::MACRO,
-                            SemanticTokenType::KEYWORD,
-                            SemanticTokenType::MODIFIER,
-                            SemanticTokenType::COMMENT,
-                            SemanticTokenType::STRING,
-                            SemanticTokenType::NUMBER,
-                            SemanticTokenType::REGEXP,
-                            SemanticTokenType::OPERATOR,
-                            SemanticTokenType::DECORATOR,
-                        ],
-                        token_modifiers: vec![
-                            SemanticTokenModifier::DECLARATION,
-                            SemanticTokenModifier::DEFINITION,
-                            SemanticTokenModifier::READONLY,
-                            SemanticTokenModifier::STATIC,
-                            SemanticTokenModifier::DEPRECATED,
-                            SemanticTokenModifier::ABSTRACT,
-                            SemanticTokenModifier::ASYNC,
-                            SemanticTokenModifier::MODIFICATION,
-                            SemanticTokenModifier::DOCUMENTATION,
-                            SemanticTokenModifier::DEFAULT_LIBRARY,
-                        ],
-                    },
-                    range: Some(true),
-                    full: Some(lsp_types::SemanticTokensFullOptions::Bool(true)),
-                },
-            ),
-        ),
-        */
-        ..Default::default()
-    })
-    .unwrap();
+    let server_capabilities = get_server_capabilities();
     let initialization_params = connection.initialize(server_capabilities)?;
     main_loop(connection, initialization_params, api_key, api_company_id)?;
     io_threads.join()?;
@@ -140,19 +68,20 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
 }
 
 fn from_env(key: &str) -> String {
+    if let Ok(content) = std::fs::read_to_string(create_path("/secrets.txt")) {
+        for line in content.lines() {
+            if let Some((k, v)) = line.split_once('=') {
+                if k.eq(key) {
+                    return v.to_string();
+                }
+            }
+        }
+    }
     std::env::var(key).expect(&format!("{key} not set as environment variable"))
 }
 
 fn log(log: &str) {
     eprintln!("{:?}: {log}", std::time::SystemTime::now());
-    /*
-    let mut file = std::fs::File::options()
-        .append(true)
-        .create(true)
-        .open("/tmp/lsp-gpt.log")
-        .unwrap();
-    writeln!(&mut file, "{:?}: {log}", std::time::SystemTime::now()).unwrap();
-    */
 }
 
 fn main_loop(
@@ -161,7 +90,13 @@ fn main_loop(
     api_key: String,
     api_company_id: String,
 ) -> Result<(), Box<dyn Error + Sync + Send>> {
-    let _params: InitializeParams = serde_json::from_value(params).unwrap();
+    let params: InitializeParams = serde_json::from_value(params).unwrap();
+    if let Some(workspace_folders) = &params.workspace_folders {
+        for workspace_folder in workspace_folders {
+            log(&format!("visiting folder {}", workspace_folder.uri));
+        }
+    }
+
     log("connection established, waiting for messages");
 
     let http_client = reqwest::blocking::Client::builder()
@@ -169,8 +104,7 @@ fn main_loop(
         .build()?;
     let auth = format!("Bearer {}", api_key);
 
-    let initial_prompt =
-        std::fs::read_to_string("/home/marco/dev/projects/lsp-gpt/assets/initial_prompt.txt")?;
+    let initial_prompt = std::fs::read_to_string(create_path("/assets/initial_prompt.txt"))?;
 
     let mut latest_text_document_item = None;
 
@@ -316,4 +250,117 @@ fn extract_json(response_message_raw: &str) -> &str {
         }
         None => response_message_raw,
     }
+}
+
+fn create_path(subpath: &str) -> String {
+    format!("{BASE_FOLDER}{subpath}")
+}
+
+fn get_server_capabilities() -> serde_json::Value {
+    serde_json::to_value(&ServerCapabilities {
+        position_encoding: Some(PositionEncodingKind::UTF8),
+        text_document_sync: Some(lsp_types::TextDocumentSyncCapability::Options(
+            TextDocumentSyncOptions {
+                open_close: Some(true),
+                change: Some(TextDocumentSyncKind::FULL),
+                save: Some(TextDocumentSyncSaveOptions::SaveOptions(
+                    lsp_types::SaveOptions {
+                        include_text: Some(true),
+                    },
+                )),
+                ..Default::default()
+            },
+        )),
+        completion_provider: Some(lsp_types::CompletionOptions {
+            ..Default::default()
+        }),
+        document_highlight_provider: Some(lsp_types::OneOf::Left(true)),
+        //document_symbol_provider: Some(lsp_types::OneOf::Left(true)),
+        diagnostic_provider: Some(lsp_types::DiagnosticServerCapabilities::Options(
+            lsp_types::DiagnosticOptions {
+                inter_file_dependencies: false,
+                workspace_diagnostics: false,
+                ..Default::default()
+            },
+        )),
+        //hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
+        references_provider: Some(lsp_types::OneOf::Left(true)),
+        code_action_provider: Some(lsp_types::CodeActionProviderCapability::Simple(true)),
+        document_formatting_provider: Some(lsp_types::OneOf::Left(true)),
+        document_range_formatting_provider: Some(lsp_types::OneOf::Left(true)),
+        rename_provider: Some(lsp_types::OneOf::Left(true)),
+        /* semantic tokens disabled for now
+        semantic_tokens_provider: Some(
+            lsp_types::SemanticTokensServerCapabilities::SemanticTokensOptions(
+                lsp_types::SemanticTokensOptions {
+                    work_done_progress_options: lsp_types::WorkDoneProgressOptions {
+                        work_done_progress: None,
+                    },
+                    legend: lsp_types::SemanticTokensLegend {
+                        token_types: vec![
+                            SemanticTokenType::NAMESPACE,
+                            SemanticTokenType::TYPE,
+                            SemanticTokenType::CLASS,
+                            SemanticTokenType::ENUM,
+                            SemanticTokenType::INTERFACE,
+                            SemanticTokenType::STRUCT,
+                            SemanticTokenType::TYPE_PARAMETER,
+                            SemanticTokenType::PARAMETER,
+                            SemanticTokenType::VARIABLE,
+                            SemanticTokenType::PROPERTY,
+                            SemanticTokenType::ENUM_MEMBER,
+                            SemanticTokenType::EVENT,
+                            SemanticTokenType::FUNCTION,
+                            SemanticTokenType::METHOD,
+                            SemanticTokenType::MACRO,
+                            SemanticTokenType::KEYWORD,
+                            SemanticTokenType::MODIFIER,
+                            SemanticTokenType::COMMENT,
+                            SemanticTokenType::STRING,
+                            SemanticTokenType::NUMBER,
+                            SemanticTokenType::REGEXP,
+                            SemanticTokenType::OPERATOR,
+                            SemanticTokenType::DECORATOR,
+                        ],
+                        token_modifiers: vec![
+                            SemanticTokenModifier::DECLARATION,
+                            SemanticTokenModifier::DEFINITION,
+                            SemanticTokenModifier::READONLY,
+                            SemanticTokenModifier::STATIC,
+                            SemanticTokenModifier::DEPRECATED,
+                            SemanticTokenModifier::ABSTRACT,
+                            SemanticTokenModifier::ASYNC,
+                            SemanticTokenModifier::MODIFICATION,
+                            SemanticTokenModifier::DOCUMENTATION,
+                            SemanticTokenModifier::DEFAULT_LIBRARY,
+                        ],
+                    },
+                    range: Some(true),
+                    full: Some(lsp_types::SemanticTokensFullOptions::Bool(true)),
+                },
+            ),
+        ),
+        */
+        workspace: Some(WorkspaceServerCapabilities {
+            workspace_folders: Some(lsp_types::WorkspaceFoldersServerCapabilities {
+                supported: Some(true),
+                change_notifications: Some(lsp_types::OneOf::Left(false)),
+            }),
+            file_operations: Some(WorkspaceFileOperationsServerCapabilities {
+                did_create: Some(lsp_types::FileOperationRegistrationOptions {
+                    filters: vec![FileOperationFilter {
+                        scheme: None,
+                        pattern: lsp_types::FileOperationPattern {
+                            glob: "**".to_string(),
+                            matches: None,
+                            options: None,
+                        },
+                    }],
+                }),
+                ..Default::default()
+            }),
+        }),
+        ..Default::default()
+    })
+    .unwrap()
 }
