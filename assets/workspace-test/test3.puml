@@ -1,0 +1,13 @@
+@startuml test document number 3
+
+actor a as "Eve"
+actor b as "Thomas"
+
+a -> b : Hello Thomas!
+b --> a : Hi Eve.
+a -> b : I'm looking to pick a new computer. Do you have a recommendation for me?
+b --> a : Either a Mac or something that runs Linux well.
+a -> b : You're the second one that recommends this. Thank you!
+b --> a : You are welcome, bye.
+
+@enduml

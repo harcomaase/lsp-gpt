@@ -20,6 +20,7 @@ To be done before the next iteration:
   - [ ] create a fully featured language server (as easily as possible)
   - [x] train it towards meaningful completions (from examples), e.g. fitting names/identifiers, desired syntax
   - [x] write a standalone language server with the help of GPT
+- [ ] refactor logging
 
 
 ## what has been done?
@@ -200,45 +201,52 @@ capabilities it wants to use. In the beginning, only `completions` were tested (
 After that part was working successfully, the language server also reported further capabilities from the language
 server protocol. The tested capabilities and their results are documented in the following paragraphs.
 
-#### capability: document highlight
+#### capabilities
+
+##### document highlight
 
 - highlights selected (key-) words in the complete document (or range)
 - does not yet work in the editor (TODO: seems to work in addition to basic syntax highlighting only?)
 
-#### capability: diagnostic
+##### diagnostics
 
 - shows errors and warnings in the document
 - needs extra steps, since the server pushes diagnostics to the client without the client requesting it
 - possible solution: add explicit request for diagnostics on each file change
 
-#### capability: hover
+##### hover
 
 - shows information about the token under the cursor (e.g. type of variable, signature of method)
 - works mostly as intended, detailed information about token is returned
 - using GPT-4-turbo, the complete line is explained often
 
-#### capability: references
+##### references
 
 - shows references of the selected token, e.g. usages of methods
 - results are currently faulty: wrong line numbers are reported, not all references are found
 
-#### capability: code action
+##### code action
 
 - show possible changes to the code, either to fix an error/warning or refactor code
 - GPT-4 offered actions, while GPT-4-turbo did not suggest a single action yet, without further prompting or examples
 
-#### capability: document formatting
+##### document formatting
 
 - allows the language server to format a document or section of it according to language formatting rules
 - does not work yet: the suggested changes lead to duplication of lines
 
-#### capability: renaming
+##### renaming
 
-- allows renaming of symbols throughout document of complete workspace
+- allows renaming of symbols throughout documents of complete workspace
 - does not work reliably: other symbol got renamed, and new name was inserted on blank lines
 
 
 TODO: check for problems in position encoding (code action seems to be 1 line off, also references are sometimes in empty lines)
+
+#### workspace folders
+
+In addition to single documents, the language server specification allows the handling
+of multiple documents within a folder. TODO: continue
 
 ### usage in editors
 
