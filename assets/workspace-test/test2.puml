@@ -8,7 +8,7 @@ b --> a : All good! And you?
 a -> b : Thank you, I'm fine! One question: do you know a good operating system?
 b --> a : MacOS is great! I'm using it all the time!
 a -> b : Good to know, thanks. Do you also use Windows or Linux?
-b --> a : No, I have never used these.
+b --> a : Yes, my partner uses Windows on their machine. It works well.
 a -> b : Okay, thanks! See you later!
 b --> a : Bye!
 
