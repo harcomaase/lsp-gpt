@@ -1,12 +1,13 @@
-use std::{error::Error, time::Duration};
+use std::{error::Error, path::PathBuf, time::Duration};
 
 use lsp_server::{Connection, Message};
 use lsp_types::{
     DidChangeTextDocumentParams, DidOpenTextDocumentParams, FileOperationFilter, InitializeParams,
-    ServerCapabilities, TextDocumentSyncKind, TextDocumentSyncOptions, TextDocumentSyncSaveOptions,
-    WorkspaceFileOperationsServerCapabilities, WorkspaceServerCapabilities,
+    ServerCapabilities, TextDocumentItem, TextDocumentSyncKind, TextDocumentSyncOptions,
+    TextDocumentSyncSaveOptions, WorkspaceFileOperationsServerCapabilities,
+    WorkspaceServerCapabilities,
 };
-use reqwest::{header, Method};
+use reqwest::{header, Method, Url};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -90,11 +91,6 @@ fn main_loop(
     api_company_id: String,
 ) -> Result<(), Box<dyn Error + Sync + Send>> {
     let params: InitializeParams = serde_json::from_value(params).unwrap();
-    if let Some(workspace_folders) = &params.workspace_folders {
-        for workspace_folder in workspace_folders {
-            log(&format!("visiting folder {}", workspace_folder.uri));
-        }
-    }
 
     log("connection established, waiting for messages");
 
@@ -103,7 +99,7 @@ fn main_loop(
         .build()?;
     let auth = format!("Bearer {}", api_key);
 
-    let initial_prompt = std::fs::read_to_string(create_path("/assets/initial_prompt.txt"))?;
+    let initial_prompts = create_initial_prompts()?;
 
     let mut latest_text_document_item = None;
 
@@ -119,15 +115,29 @@ fn main_loop(
 
                 let mut messages = Vec::with_capacity(3);
                 // prompting
-                messages.push(GptMessage {
-                    role: "system".to_string(),
-                    content: initial_prompt.to_string(),
-                });
-                if let Some(item) = &latest_text_document_item {
+                for initial_prompt in &initial_prompts {
                     messages.push(GptMessage {
                         role: "system".to_string(),
-                        content: serde_json::to_string(item)?,
+                        content: initial_prompt.to_string(),
                     });
+                }
+                // send all documents in workspace
+                //TODO: define a limit
+                let workspace_documents = gather_workspace_documents(&params)?;
+                for workspace_document in &workspace_documents {
+                    messages.push(GptMessage {
+                        role: "system".to_string(),
+                        content: serde_json::to_string(&workspace_document)?,
+                    });
+                }
+                // if workspace is not available or empty, use latest opened/changed document
+                if workspace_documents.is_empty() {
+                    if let Some(item) = &latest_text_document_item {
+                        messages.push(GptMessage {
+                            role: "system".to_string(),
+                            content: serde_json::to_string(item)?,
+                        });
+                    }
                 }
                 // actual request
                 messages.push(GptMessage {
@@ -253,6 +263,62 @@ fn extract_json(response_message_raw: &str) -> &str {
 
 fn create_path(subpath: &str) -> String {
     format!("{BASE_FOLDER}{subpath}")
+}
+
+fn create_initial_prompts() -> std::io::Result<Vec<String>> {
+    let input = std::fs::read_to_string(create_path("/assets/initial_prompt.txt"))?;
+
+    Ok(input
+        .split("\n\n")
+        .map(|paragraph| paragraph.to_string())
+        .collect())
+}
+
+fn gather_workspace_documents(params: &InitializeParams) -> std::io::Result<Vec<TextDocumentItem>> {
+    let mut workspace_documents = Vec::new();
+    if let Some(workspace_folders) = &params.workspace_folders {
+        for (worksspace_folder_index, workspace_folder) in workspace_folders.into_iter().enumerate()
+        {
+            log(&format!(
+                "in workspace folder: {}",
+                &workspace_folder.uri.as_str()
+            ));
+            let path = workspace_folder.uri.as_str();
+            let path = path.strip_prefix("file://").unwrap_or(path);
+            let directory = &PathBuf::from(path);
+            for (file_index, file) in collect_files(directory)?.into_iter().enumerate() {
+                let content = std::fs::read_to_string(&file)?;
+                let url = Url::parse(&format!(
+                    "file://{}",
+                    file.to_str().unwrap_or(
+                        format!("{}-{}.puml", worksspace_folder_index, file_index).as_str()
+                    )
+                ))
+                .unwrap();
+                workspace_documents.push(TextDocumentItem {
+                    language_id: "plantuml".to_string(),
+                    uri: url,
+                    version: 1,
+                    text: content,
+                });
+            }
+        }
+    }
+    Ok(workspace_documents)
+}
+
+fn collect_files(path: &PathBuf) -> std::io::Result<Vec<PathBuf>> {
+    let mut files = Vec::new();
+    if path.is_file() && path.extension().map_or(false, |e| e.eq("puml")) {
+        files.push(path.clone());
+    } else if path.is_dir() {
+        for entry in std::fs::read_dir(path)? {
+            let entry = entry?;
+            let mut entry_files = collect_files(&entry.path())?;
+            files.append(&mut entry_files);
+        }
+    }
+    Ok(files)
 }
 
 fn get_server_capabilities() -> serde_json::Value {

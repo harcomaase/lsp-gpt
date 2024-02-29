@@ -175,7 +175,7 @@ From the `content` attribute in the response, we can simply parse and forward th
 
 While exploring GPT-4 usage as an API endpoint, OpenAI released a preview version
 of an enhanced GPT-4 version: GPT-4-turbo. Switching to this version unfortunately
-slightly changes the response behaviour a bit: Responses are now markdown-formatted,
+slightly changes the response behaviour: Responses are now markdown-formatted,
 meaning the JSON payload is wrapped in a Markdown code block, and GPT-4-turbo even
 adds explanation text.
 
@@ -188,7 +188,7 @@ the Markdown markup elements for code blocks and possible explanations.
 ### language server
 
 The implemented language server acts as a middleware, mostly forwarding requests and responses. It contains
-business logic for the handling of file contents, since LSP requests from the editor mainly contain paths
+business logic for the handling of file contents, since the majority of LSP requests from the editor contain URIs
 to the currently viewed file, and the GPT-4 API can not access them.
 
 As a first workaround, the language server caches the file contents of the currently viewed file, and sends
@@ -198,8 +198,8 @@ updates of the file.
 
 Additionally, the language server defines its capabilities, and the client can choose which of these
 capabilities it wants to use. In the beginning, only `completions` were tested (code completions or text suggestions).
-After that part was working successfully, the language server also reported further capabilities from the language
-server protocol. The tested capabilities and their results are documented in the following paragraphs.
+After that part was working successfully, the language server has been enhanced to report further capabilities from the language
+server protocol. The (smoke-)tested capabilities and their results are documented in the following paragraphs.
 
 #### capabilities
 
@@ -246,7 +246,75 @@ TODO: check for problems in position encoding (code action seems to be 1 line of
 #### workspace folders
 
 In addition to single documents, the language server specification allows the handling
-of multiple documents within a folder. TODO: continue
+of multiple documents within a folder (or 'workspace'). This allows the server to analyse
+all files within a project, and perform its actions on all of them (e.g. renaming or finding
+references across several files). The handling of these workspace folders and files is
+left to the language server completely. Since the client will send notifications about opened,
+modified and closed files only, the language server needs means to access the files
+on the client's system. Our language server implementation will take care of this, and
+forward the contents of the workspace files to the GPT-4 API. For bigger workspaces and
+numerous files, this can lead to high input token consumption - this will be dealt with
+later in case it becomes an issue.
+
+##### completions using workspace folders for few-shot learning
+
+In order to prompt the GPT-4 API for more meaningful responses (e.g. similar entity naming, structure of document,
+typical notes), the contents of the workspace documents can be used in a few-shot learning approach. This means
+the language server will scan the workspace folders for fitting files (PlantUML files), and add their contents
+as system messages to each prompt. In case this approach works, the GPT-4 API will generate completions that
+resemble parts of the workspace files.
+
+The files for this proof of concept can be found in the folder `./assets/workspace-test/`. There are 3
+sequence diagrams featuring short discussions about recommendations for operating systems. The language server
+has then been triggered for completions of actors and their messages, and indeed the GPT-4 API produced
+fitting suggestions like the following (for messages between the actors):
+
+```json
+{
+  "id": 11,
+  "result": {
+    "isIncomplete": false,
+    "items": [
+      {
+        "label": "Linux",
+        "kind": 15,
+        "detail": "Operating System",
+        "documentation": "Linux is a family of open-source Unix-like operating systems based on the Linux kernel.",
+        "insertText": "Linux"
+      },
+      {
+        "label": "Mac",
+        "kind": 15,
+        "detail": "Operating System",
+        "documentation": "MacOS is a series of proprietary graphical operating systems developed and marketed by Apple Inc.",
+        "insertText": "Mac"
+      }
+    ]
+  }
+}
+```
+
+```json
+{
+  "id": 23,
+  "result": {
+    "isIncomplete": false,
+    "items": [
+      {
+        "label": "Mac or Linux",
+        "kind": 15,
+        "detail": "Operating System Recommendation",
+        "documentation": "Either a Mac or something that runs Linux well.",
+        "insertText": "Either a Mac or something that runs Linux well."
+      }
+    ]
+  },
+  "jsonrpc": "2.0"
+}
+```
+
+This kind of completion could not be triggered on each try. For this to work better,
+the initial prompt could be adjusted.
 
 ### usage in editors
 
@@ -275,13 +343,22 @@ a manifest for the extension. This `contributes` property describes the name of 
 extensions and it requires a minimal language configuration (e.g. how line comments look like, which
 brackets are used).
 
-To run the extension for testing and debugging purposes, a launch configuration has been created at `./.vscode/launch.json`.
+In order to run the extension for testing and debugging purposes, the following modules habe to be installed:
+
+```bash
+# install node and the node package manager (if not present yet)
+sudo apt-get install npm nodejs
+# install node package for languageclient
+npm install vscode-languageclient
+```
+
+Additionally, a launch configuration has been created at `./.vscode/launch.json`.
 This allows Visual Studio Code to create a new session or window without any of the user's plugins, and only the
 lsp-gpt extension installed. To start this session, select "Run & Debug" (or press `Ctrl+Shift+D`), then select
 "Run lsp-gpt extension" (the little green play button).
 
-If the initial Visual Studio Code instance has been started with the environment variables, it will pass them to
-all its child processes, including the lsp-gpt language server:
+In the prototype language server, the API key is read out of a specific file (`secrets.txt`), but it is also
+possible to provide the secrets as environment variables:
 
 ```bash
 # assuming the Visual Studio Code binary is available on PATH as 'code'
@@ -309,16 +386,6 @@ the editor can invoke it: as an executable.
   - but needs further/different prompting, since most language server capabilities do not easily work as intended 
 - enabling multiple capabilities leads to numerous requests that can pile up quickly
 - best capability out of the box is completion (text suggestion), probably due to the document-completing nature of GPTs
-
-<hr />
-<hr />
-
-# ⚠ old notes, to be removed ⚠
-
-check if and what exactly for this setup is needed:
-
-```bash
-sudo apt-get install npm nodejs
-npm install vscode-languageclient
-```
+- few-shot learning with example documents is possible, needs refinement and better prompting
+- prompting should be different for each capability
 
