@@ -52,13 +52,19 @@ const BASE_FOLDER: &str = "/home/marco/dev/projects/lsp-gpt";
 fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
     log("language server starting");
 
+    // read keys
     let api_key = from_env("OPENAI_API_KEY");
     let api_company_id = from_env("OPENAI_ORG_ID");
 
+    // create connection
     let (connection, io_threads) = Connection::stdio();
 
+    // define language server capabilities
     let server_capabilities = get_server_capabilities();
+    // initialise connection and negotiate capabilities
     let initialization_params = connection.initialize(server_capabilities)?;
+
+    // enter the main event loop
     main_loop(connection, initialization_params, api_key, api_company_id)?;
     io_threads.join()?;
 
@@ -94,15 +100,19 @@ fn main_loop(
 
     log("connection established, waiting for messages");
 
+    // create http client
     let http_client = reqwest::blocking::Client::builder()
         .timeout(Some(Duration::new(60, 0)))
         .build()?;
     let auth = format!("Bearer {}", api_key);
 
+    // read initial prompts
     let initial_prompts = create_initial_prompts()?;
 
+    // buffer for document updates
     let mut latest_text_document_item = None;
 
+    // wait for messages
     for msg in &connection.receiver {
         let raw_msg = serde_json::to_string(&msg)?;
         log(&format!("got msg: {}", raw_msg));
@@ -139,12 +149,13 @@ fn main_loop(
                         });
                     }
                 }
-                // actual request
+                // actual request from client
                 messages.push(GptMessage {
                     role: "user".to_string(),
                     content: raw_msg,
                 });
 
+                // query the GPT API
                 let api_request = http_client
                     .request(Method::POST, "https://api.openai.com/v1/chat/completions")
                     .header(header::CONTENT_TYPE, "application/json")
@@ -165,6 +176,7 @@ fn main_loop(
 
                 let api_result = http_client.execute(api_request)?;
 
+                // handle result
                 match api_result.text() {
                     Ok(response) => {
                         match serde_json::from_str::<GptResponse>(&response) {
@@ -209,6 +221,7 @@ fn main_loop(
                 log(&format!("got response: {resp:?}"));
             }
             Message::Notification(not) => {
+                // notification handling, for updates about textDocuments
                 log(&format!("got notification: {not:?}"));
                 match not.method.as_str() {
                     "textDocument/didOpen" => {
@@ -246,6 +259,7 @@ fn main_loop(
     Ok(())
 }
 
+/// extracts the contents of markdown JSON code blocks
 fn extract_json(response_message_raw: &str) -> &str {
     let start_element = "```json\n";
     let end_element = "\n```";
@@ -265,6 +279,7 @@ fn create_path(subpath: &str) -> String {
     format!("{BASE_FOLDER}{subpath}")
 }
 
+/// read initial prompt file and split contents by paragraph
 fn create_initial_prompts() -> std::io::Result<Vec<String>> {
     let input = std::fs::read_to_string(create_path("/assets/initial_prompt.txt"))?;
 
@@ -286,7 +301,7 @@ fn gather_workspace_documents(params: &InitializeParams) -> std::io::Result<Vec<
             let path = workspace_folder.uri.as_str();
             let path = path.strip_prefix("file://").unwrap_or(path);
             let directory = &PathBuf::from(path);
-            for (file_index, file) in collect_files(directory)?.into_iter().enumerate() {
+            for (file_index, file) in collect_puml_files(directory)?.into_iter().enumerate() {
                 let content = std::fs::read_to_string(&file)?;
                 let url = Url::parse(&format!(
                     "file://{}",
@@ -307,14 +322,14 @@ fn gather_workspace_documents(params: &InitializeParams) -> std::io::Result<Vec<
     Ok(workspace_documents)
 }
 
-fn collect_files(path: &PathBuf) -> std::io::Result<Vec<PathBuf>> {
+fn collect_puml_files(path: &PathBuf) -> std::io::Result<Vec<PathBuf>> {
     let mut files = Vec::new();
     if path.is_file() && path.extension().map_or(false, |e| e.eq("puml")) {
         files.push(path.clone());
     } else if path.is_dir() {
         for entry in std::fs::read_dir(path)? {
             let entry = entry?;
-            let mut entry_files = collect_files(&entry.path())?;
+            let mut entry_files = collect_puml_files(&entry.path())?;
             files.append(&mut entry_files);
         }
     }
