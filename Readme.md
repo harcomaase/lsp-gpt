@@ -13,14 +13,24 @@ Additionally, it contains clients or usage instructions for Visual Studio Code a
 To be done before the next iteration:
 
 - [x] explore GPT behaviour for additional LSP features: highlighting, diagnostics/errors, fixing
-- [ ] enhance prompt with few-shot learning: add possibility to provide example diagrams
-  - [ ] explore working on workspace level instead of document level only: other existing diagrams can be used as example
+- [x] enhance prompt with few-shot learning: add possibility to provide example diagrams
+  - [x] explore working on workspace level instead of document level only: other existing diagrams can be used as example
   - [ ] provide examples of requests and responses in order to shape GPT output
-- [ ] decide on direction:
+- [x] decide on direction:
   - [ ] create a fully featured language server (as easily as possible)
   - [x] train it towards meaningful completions (from examples), e.g. fitting names/identifiers, desired syntax
-  - [x] write a standalone language server with the help of GPT
+  - [ ] write a standalone language server with the help of GPT
 - [ ] refactor logging
+
+## how to proceed
+- prompting domänenspezifisch (zB Banken, Krankenhaus); Nachrichten -> Methodennamen?
+- Anmeldung Arbeit:
+  - Inhalt ausreichend für Masterarbeit
+  - Formular auf Website, Kontakt mit Herrn Paap
+  - informieren über Fristen!
+- Vortrag Ende April:
+  - Anmeldung bis 22. März
+  - Prof informieren
 
 
 ## what has been done?
@@ -310,6 +320,31 @@ fitting suggestions like the following (for messages between the actors):
     ]
   },
   "jsonrpc": "2.0"
+}
+```
+
+```json
+{
+  "id": 6,
+  "result": {
+    "isIncomplete": false,
+    "items": [
+      {
+        "label": "Great, thanks! Do you have a recommendation for an operating system?",
+        "kind": 15,
+        "detail": "Message from Alice to Bob",
+        "documentation": "This message follows the pattern of asking for recommendations observed in other documents.",
+        "insertText": "Great, thanks! Do you have a recommendation for an operating system?"
+      },
+      {
+        "label": "Thank you! How about Windows?",
+        "kind": 15,
+        "detail": "Message from Alice to Bob",
+        "documentation": "This message is a follow-up question about a specific operating system, similar to interactions in other documents.",
+        "insertText": "Thank you! How about Windows?"
+      }
+    ]
+  }
 }
 ```
 
