@@ -87,7 +87,7 @@ fn from_env(key: &str) -> String {
 }
 
 fn log(log: &str) {
-    eprintln!("{:?}: {log}", std::time::SystemTime::now());
+    eprintln!("{:?}: {log}\n", std::time::SystemTime::now());
 }
 
 fn main_loop(
@@ -115,7 +115,7 @@ fn main_loop(
     // wait for messages
     for msg in &connection.receiver {
         let raw_msg = serde_json::to_string(&msg)?;
-        log(&format!("got msg: {}", raw_msg));
+        //log(&format!("got msg: {}", raw_msg));
         match msg {
             Message::Request(req) => {
                 if connection.handle_shutdown(&req)? {
@@ -170,8 +170,8 @@ fn main_loop(
                     .build()?;
 
                 log(&format!(
-                    "sending request to GPT API: {:?}",
-                    &api_request.body().unwrap()
+                    "sending request to GPT API",
+                    //&api_request.body().unwrap()
                 ));
 
                 let api_result = http_client.execute(api_request)?;
@@ -294,10 +294,10 @@ fn gather_workspace_documents(params: &InitializeParams) -> std::io::Result<Vec<
     if let Some(workspace_folders) = &params.workspace_folders {
         for (worksspace_folder_index, workspace_folder) in workspace_folders.into_iter().enumerate()
         {
-            log(&format!(
-                "in workspace folder: {}",
-                &workspace_folder.uri.as_str()
-            ));
+            //log(&format!(
+            //    "in workspace folder: {}",
+            //    &workspace_folder.uri.as_str()
+            //));
             let path = workspace_folder.uri.as_str();
             let path = path.strip_prefix("file://").unwrap_or(path);
             let directory = &PathBuf::from(path);
