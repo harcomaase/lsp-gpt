@@ -20,7 +20,7 @@ To be done before the next iteration:
   - [ ] create a fully featured language server (as easily as possible)
   - [x] train it towards meaningful completions (from examples), e.g. fitting names/identifiers, desired syntax
   - [ ] write a standalone language server with the help of GPT
-- [ ] refactor logging
+- [x] refactor logging
 
 ## how to proceed
 - prompting domänenspezifisch (zB Banken, Krankenhaus); Nachrichten -> Methodennamen?
