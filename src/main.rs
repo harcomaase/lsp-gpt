@@ -1,4 +1,9 @@
-use std::{error::Error, path::PathBuf, time::Duration};
+use std::{
+    error::Error,
+    io::Write,
+    path::PathBuf,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use lsp_server::{Connection, Message};
 use lsp_types::{
@@ -50,7 +55,11 @@ const BASE_FOLDER: &str = "/home/marco/dev/projects/lsp-gpt";
 // the initial version is very much taken from the lsp-server example:
 // https://github.com/rust-lang/rust-analyzer/blob/master/lib/lsp-server/examples/goto_def.rs
 fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
-    log("language server starting");
+    env_logger::builder()
+        .target(env_logger::Target::Stderr)
+        .filter_level(log::LevelFilter::Debug)
+        .init();
+    log::info!("language server starting");
 
     // read keys
     let api_key = from_env("OPENAI_API_KEY");
@@ -65,10 +74,10 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
     let initialization_params = connection.initialize(server_capabilities)?;
 
     // enter the main event loop
-    main_loop(connection, initialization_params, api_key, api_company_id)?;
+    handle_messages(connection, initialization_params, api_key, api_company_id)?;
     io_threads.join()?;
 
-    log("language server stopping");
+    log::info!("language server stopping");
 
     Ok(())
 }
@@ -86,11 +95,41 @@ fn from_env(key: &str) -> String {
     std::env::var(key).expect(&format!("{key} not set as environment variable"))
 }
 
-fn log(log: &str) {
-    eprintln!("{:?}: {log}\n", std::time::SystemTime::now());
+fn log_invocation(
+    model: &str,
+    duration: Duration,
+    method: &str,
+    usage: &GptResponseUsage,
+) -> std::io::Result<()> {
+    let filename = create_path("/invocations.csv");
+
+    log::info!("logging to {filename}");
+
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(filename)?;
+
+    let line = format!(
+        "{},{},{},{},{},{},{}\n",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis(),
+        model,
+        duration.as_millis(),
+        method,
+        usage.prompt_tokens,
+        usage.completion_tokens,
+        usage.total_tokens
+    );
+
+    file.write_all(line.as_bytes())?;
+
+    Ok(())
 }
 
-fn main_loop(
+fn handle_messages(
     connection: Connection,
     params: serde_json::Value,
     api_key: String,
@@ -98,7 +137,7 @@ fn main_loop(
 ) -> Result<(), Box<dyn Error + Sync + Send>> {
     let params: InitializeParams = serde_json::from_value(params).unwrap();
 
-    log("connection established, waiting for messages");
+    log::info!("connection established, waiting for messages");
 
     // create http client
     let http_client = reqwest::blocking::Client::builder()
@@ -121,7 +160,7 @@ fn main_loop(
                 if connection.handle_shutdown(&req)? {
                     return Ok(());
                 }
-                log(&format!("got request: {req:?}"));
+                log::info!("got request: {req:?}");
 
                 let mut messages = Vec::with_capacity(3);
                 // prompting
@@ -156,36 +195,45 @@ fn main_loop(
                 });
 
                 // query the GPT API
+                let model = "gpt-4-turbo-preview".to_string();
                 let api_request = http_client
                     .request(Method::POST, "https://api.openai.com/v1/chat/completions")
                     .header(header::CONTENT_TYPE, "application/json")
                     .header(header::AUTHORIZATION, &auth)
                     .header("OpenAI-Organization", &api_company_id)
                     .body(serde_json::to_string(&GptRequest {
-                        model: "gpt-4-turbo-preview".to_string(),
+                        model: model.clone(),
                         messages,
                         temperature: 0.2,
                         n: 1,
                     })?)
                     .build()?;
 
-                log(&format!(
+                log::info!(
                     "sending request to GPT API",
                     //&api_request.body().unwrap()
-                ));
+                );
 
+                let start = SystemTime::now();
                 let api_result = http_client.execute(api_request)?;
+                let duration = start.elapsed()?;
 
                 // handle result
                 match api_result.text() {
                     Ok(response) => {
                         match serde_json::from_str::<GptResponse>(&response) {
                             Ok(response_json) => {
+                                let _ = log_invocation(
+                                    &model,
+                                    duration,
+                                    &req.method,
+                                    &response_json.usage,
+                                );
                                 // response is valid json, so we can use the first answer
-                                log(&format!(
+                                log::info!(
                                     "got GPT response: {}",
                                     serde_json::to_string(&response_json)?
-                                ));
+                                );
                                 let response_message_raw = response_json
                                     .choices
                                     .get(0)
@@ -199,30 +247,30 @@ fn main_loop(
                                 match serde_json::from_str(extracted_response_message) {
                                     Ok(response_message) => {
                                         // valid language server response
-                                        log(&format!("all good, sending response to client: {response_message_raw}"));
+                                        log::info!("all good, sending response to client: {response_message_raw}");
                                         connection
                                             .sender
                                             .send(Message::Response(response_message))?
                                     }
-                                    Err(err) => log(&format!(
+                                    Err(err) => log::info!(
                                         "error parsing response, err: {err}, response: {response_message_raw}"
-                                    )),
+                                    ),
                                 }
                             }
-                            Err(err) => log(&format!(
+                            Err(err) => log::info!(
                                 "error parsing response, err: {err}, response: {response}"
-                            )),
+                            ),
                         }
                     }
-                    Err(err) => log(&format!("can not parse GPT API response, err: {err}")),
+                    Err(err) => log::info!("can not parse GPT API response, err: {err}"),
                 }
             }
             Message::Response(resp) => {
-                log(&format!("got response: {resp:?}"));
+                log::info!("got response: {resp:?}");
             }
             Message::Notification(not) => {
                 // notification handling, for updates about textDocuments
-                log(&format!("got notification: {not:?}"));
+                log::info!("got notification: {not:?}");
                 match not.method.as_str() {
                     "textDocument/didOpen" => {
                         match serde_json::from_value::<DidOpenTextDocumentParams>(not.params) {
@@ -232,7 +280,7 @@ fn main_loop(
                                 ()
                             }
                             Err(err) => {
-                                log(&format!("can not parse didOpen notification {err}"));
+                                log::info!("can not parse didOpen notification {err}");
                                 ()
                             }
                         }
@@ -241,12 +289,12 @@ fn main_loop(
                         match serde_json::from_value::<DidChangeTextDocumentParams>(not.params) {
                             Ok(text_document) => {
                                 //let x = text_document.content_changes;
-                                log(&format!("received changes: {:?}", &text_document));
+                                log::info!("received changes: {:?}", &text_document);
                                 //latest_text_document_item = Some(x);
                                 ()
                             }
                             Err(err) => {
-                                log(&format!("can not parse didChange notification {err}"));
+                                log::info!("can not parse didChange notification {err}");
                                 ()
                             }
                         }
