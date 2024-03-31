@@ -99,6 +99,7 @@ fn log_invocation(
     model: &str,
     duration: Duration,
     method: &str,
+    prompt_quantity:usize,
     usage: &GptResponseUsage,
 ) -> std::io::Result<()> {
     let filename = create_path("/invocations.csv");
@@ -111,14 +112,15 @@ fn log_invocation(
         .open(filename)?;
 
     let line = format!(
-        "{},{},{},{},{},{},{}\n",
+        "{},{},{},{},{},{},{},{}\n",
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
-            .as_millis(),
+            .as_secs(),
         model,
         duration.as_millis(),
         method,
+        prompt_quantity,
         usage.prompt_tokens,
         usage.completion_tokens,
         usage.total_tokens
@@ -196,6 +198,7 @@ fn handle_messages(
 
                 // query the GPT API
                 let model = "gpt-4-turbo-preview".to_string();
+                let prompt_quantity = messages.len();
                 let api_request = http_client
                     .request(Method::POST, "https://api.openai.com/v1/chat/completions")
                     .header(header::CONTENT_TYPE, "application/json")
@@ -227,6 +230,7 @@ fn handle_messages(
                                     &model,
                                     duration,
                                     &req.method,
+                                    prompt_quantity,
                                     &response_json.usage,
                                 );
                                 // response is valid json, so we can use the first answer
