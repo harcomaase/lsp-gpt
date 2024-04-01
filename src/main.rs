@@ -15,6 +15,10 @@ use lsp_types::{
 use reqwest::{header, Method, Url};
 use serde::{Deserialize, Serialize};
 
+use crate::prompt_config::PromptConfig;
+
+mod prompt_config;
+
 #[derive(Serialize, Deserialize)]
 struct GptRequest {
     model: String,
@@ -73,8 +77,17 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
     // initialise connection and negotiate capabilities
     let initialization_params = connection.initialize(server_capabilities)?;
 
+    // read prompt config
+    let prompt_config = PromptConfig::from(create_path("/assets/prompts/").as_str());
+
     // enter the main event loop
-    handle_messages(connection, initialization_params, api_key, api_company_id)?;
+    handle_messages(
+        connection,
+        initialization_params,
+        prompt_config,
+        api_key,
+        api_company_id,
+    )?;
     io_threads.join()?;
 
     log::info!("language server stopping");
@@ -99,7 +112,7 @@ fn log_invocation(
     model: &str,
     duration: Duration,
     method: &str,
-    prompt_quantity:usize,
+    prompt_quantity: usize,
     usage: &GptResponseUsage,
 ) -> std::io::Result<()> {
     let filename = create_path("/invocations.csv");
@@ -134,6 +147,7 @@ fn log_invocation(
 fn handle_messages(
     connection: Connection,
     params: serde_json::Value,
+    prompt_config: PromptConfig,
     api_key: String,
     api_company_id: String,
 ) -> Result<(), Box<dyn Error + Sync + Send>> {
@@ -146,9 +160,6 @@ fn handle_messages(
         .timeout(Some(Duration::new(60, 0)))
         .build()?;
     let auth = format!("Bearer {}", api_key);
-
-    // read initial prompts
-    let initial_prompts = create_initial_prompts()?;
 
     // buffer for document updates
     let mut latest_text_document_item = None;
@@ -164,12 +175,14 @@ fn handle_messages(
                 }
                 log::info!("got request: {req:?}");
 
+                let prompt_config_entry = prompt_config.get_or_default(&req.method);
+
                 let mut messages = Vec::with_capacity(3);
                 // prompting
-                for initial_prompt in &initial_prompts {
+                for prompt in &prompt_config_entry.prompt_messages {
                     messages.push(GptMessage {
                         role: "system".to_string(),
-                        content: initial_prompt.to_string(),
+                        content: prompt.to_string(),
                     });
                 }
                 // send all documents in workspace
@@ -197,7 +210,7 @@ fn handle_messages(
                 });
 
                 // query the GPT API
-                let model = "gpt-4-turbo-preview".to_string();
+                let model = &prompt_config_entry.model;
                 let prompt_quantity = messages.len();
                 let api_request = http_client
                     .request(Method::POST, "https://api.openai.com/v1/chat/completions")
@@ -329,16 +342,6 @@ fn extract_json(response_message_raw: &str) -> &str {
 
 fn create_path(subpath: &str) -> String {
     format!("{BASE_FOLDER}{subpath}")
-}
-
-/// read initial prompt file and split contents by paragraph
-fn create_initial_prompts() -> std::io::Result<Vec<String>> {
-    let input = std::fs::read_to_string(create_path("/assets/initial_prompt.txt"))?;
-
-    Ok(input
-        .split("\n\n")
-        .map(|paragraph| paragraph.to_string())
-        .collect())
 }
 
 fn gather_workspace_documents(params: &InitializeParams) -> std::io::Result<Vec<TextDocumentItem>> {
