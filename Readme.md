@@ -21,6 +21,7 @@ To be done before the next iteration:
   - [x] train it towards meaningful completions (from examples), e.g. fitting names/identifiers, desired syntax
   - [ ] write a standalone language server with the help of GPT
 - [x] refactor logging
+- [ ] per capability prompts and model
 
 ## how to proceed
 - prompting domänenspezifisch (zB Banken, Krankenhaus); Nachrichten -> Methodennamen?

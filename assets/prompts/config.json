@@ -1,0 +1,19 @@
+{
+    "prompts": [
+        {
+            "method": "fallback",
+            "model": "gpt-4-turbo-preview",
+            "file": "initial-prompt.txt"
+        },
+        {
+            "method": "textDocument/completion",
+            "model": "gpt-4-turbo-preview",
+            "file": "initial-prompt.txt"
+        },
+        {
+            "method": "textDocument/codeAction",
+            "model": "gpt-4-turbo-preview",
+            "file": "initial-prompt.txt"
+        }
+    ]
+}
