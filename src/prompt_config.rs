@@ -11,6 +11,7 @@ pub(crate) struct PromptConfig {
 pub(crate) struct PromptConfigEntry {
     pub(crate) method: String,
     pub(crate) model: String,
+    pub(crate) model_temperature: f32,
     pub(crate) file: String,
     #[serde(skip)]
     pub(crate) prompt_messages: Vec<String>,

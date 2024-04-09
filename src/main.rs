@@ -5,54 +5,21 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
+use gpt_adapter::GptResponseUsage;
 use lsp_server::{Connection, Message};
 use lsp_types::{
-    DidChangeTextDocumentParams, DidOpenTextDocumentParams, FileOperationFilter, InitializeParams,
-    ServerCapabilities, TextDocumentItem, TextDocumentSyncKind, TextDocumentSyncOptions,
-    TextDocumentSyncSaveOptions, WorkspaceFileOperationsServerCapabilities,
-    WorkspaceServerCapabilities,
+    DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams, TextDocumentItem,
 };
 use reqwest::{header, Method, Url};
-use serde::{Deserialize, Serialize};
 
-use crate::prompt_config::PromptConfig;
+use crate::{
+    gpt_adapter::{GptMessage, GptRequest, GptResponse},
+    prompt_config::PromptConfig,
+};
 
+mod gpt_adapter;
 mod prompt_config;
-
-#[derive(Serialize, Deserialize)]
-struct GptRequest {
-    model: String,
-    messages: Vec<GptMessage>,
-    temperature: f32,
-    n: u32,
-}
-
-#[derive(Serialize, Deserialize)]
-struct GptMessage {
-    role: String,
-    content: String,
-}
-
-#[derive(Serialize, Deserialize)]
-struct GptResponse {
-    id: String,
-    choices: Vec<GptResponseChoice>,
-    usage: GptResponseUsage,
-}
-
-#[derive(Serialize, Deserialize)]
-struct GptResponseChoice {
-    index: u64,
-    message: GptMessage,
-    finish_reason: String,
-}
-
-#[derive(Serialize, Deserialize)]
-struct GptResponseUsage {
-    prompt_tokens: u64,
-    completion_tokens: u64,
-    total_tokens: u64,
-}
+mod server_capabilities;
 
 const BASE_FOLDER: &str = "/home/marco/dev/projects/lsp-gpt";
 
@@ -73,7 +40,7 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
     let (connection, io_threads) = Connection::stdio();
 
     // define language server capabilities
-    let server_capabilities = get_server_capabilities();
+    let server_capabilities = server_capabilities::get_server_capabilities();
     // initialise connection and negotiate capabilities
     let initialization_params = connection.initialize(server_capabilities)?;
 
@@ -211,6 +178,7 @@ fn handle_messages(
 
                 // query the GPT API
                 let model = &prompt_config_entry.model;
+                let temperature = prompt_config_entry.model_temperature;
                 let prompt_quantity = messages.len();
                 let api_request = http_client
                     .request(Method::POST, "https://api.openai.com/v1/chat/completions")
@@ -220,7 +188,7 @@ fn handle_messages(
                     .body(serde_json::to_string(&GptRequest {
                         model: model.clone(),
                         messages,
-                        temperature: 0.2,
+                        temperature,
                         n: 1,
                     })?)
                     .build()?;
@@ -389,112 +357,4 @@ fn collect_puml_files(path: &PathBuf) -> std::io::Result<Vec<PathBuf>> {
         }
     }
     Ok(files)
-}
-
-fn get_server_capabilities() -> serde_json::Value {
-    serde_json::to_value(&ServerCapabilities {
-        text_document_sync: Some(lsp_types::TextDocumentSyncCapability::Options(
-            TextDocumentSyncOptions {
-                open_close: Some(true),
-                change: Some(TextDocumentSyncKind::FULL),
-                save: Some(TextDocumentSyncSaveOptions::SaveOptions(
-                    lsp_types::SaveOptions {
-                        include_text: Some(true),
-                    },
-                )),
-                ..Default::default()
-            },
-        )),
-        completion_provider: Some(lsp_types::CompletionOptions {
-            ..Default::default()
-        }),
-        document_highlight_provider: Some(lsp_types::OneOf::Left(true)),
-        //document_symbol_provider: Some(lsp_types::OneOf::Left(true)),
-        diagnostic_provider: Some(lsp_types::DiagnosticServerCapabilities::Options(
-            lsp_types::DiagnosticOptions {
-                inter_file_dependencies: false,
-                workspace_diagnostics: false,
-                ..Default::default()
-            },
-        )),
-        //hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
-        references_provider: Some(lsp_types::OneOf::Left(true)),
-        code_action_provider: Some(lsp_types::CodeActionProviderCapability::Simple(true)),
-        document_formatting_provider: Some(lsp_types::OneOf::Left(true)),
-        document_range_formatting_provider: Some(lsp_types::OneOf::Left(true)),
-        rename_provider: Some(lsp_types::OneOf::Left(true)),
-        /* semantic tokens disabled for now
-        semantic_tokens_provider: Some(
-            lsp_types::SemanticTokensServerCapabilities::SemanticTokensOptions(
-                lsp_types::SemanticTokensOptions {
-                    work_done_progress_options: lsp_types::WorkDoneProgressOptions {
-                        work_done_progress: None,
-                    },
-                    legend: lsp_types::SemanticTokensLegend {
-                        token_types: vec![
-                            SemanticTokenType::NAMESPACE,
-                            SemanticTokenType::TYPE,
-                            SemanticTokenType::CLASS,
-                            SemanticTokenType::ENUM,
-                            SemanticTokenType::INTERFACE,
-                            SemanticTokenType::STRUCT,
-                            SemanticTokenType::TYPE_PARAMETER,
-                            SemanticTokenType::PARAMETER,
-                            SemanticTokenType::VARIABLE,
-                            SemanticTokenType::PROPERTY,
-                            SemanticTokenType::ENUM_MEMBER,
-                            SemanticTokenType::EVENT,
-                            SemanticTokenType::FUNCTION,
-                            SemanticTokenType::METHOD,
-                            SemanticTokenType::MACRO,
-                            SemanticTokenType::KEYWORD,
-                            SemanticTokenType::MODIFIER,
-                            SemanticTokenType::COMMENT,
-                            SemanticTokenType::STRING,
-                            SemanticTokenType::NUMBER,
-                            SemanticTokenType::REGEXP,
-                            SemanticTokenType::OPERATOR,
-                            SemanticTokenType::DECORATOR,
-                        ],
-                        token_modifiers: vec![
-                            SemanticTokenModifier::DECLARATION,
-                            SemanticTokenModifier::DEFINITION,
-                            SemanticTokenModifier::READONLY,
-                            SemanticTokenModifier::STATIC,
-                            SemanticTokenModifier::DEPRECATED,
-                            SemanticTokenModifier::ABSTRACT,
-                            SemanticTokenModifier::ASYNC,
-                            SemanticTokenModifier::MODIFICATION,
-                            SemanticTokenModifier::DOCUMENTATION,
-                            SemanticTokenModifier::DEFAULT_LIBRARY,
-                        ],
-                    },
-                    range: Some(true),
-                    full: Some(lsp_types::SemanticTokensFullOptions::Bool(true)),
-                },
-            ),
-        ),
-        */
-        workspace: Some(WorkspaceServerCapabilities {
-            workspace_folders: Some(lsp_types::WorkspaceFoldersServerCapabilities {
-                supported: Some(true),
-                change_notifications: Some(lsp_types::OneOf::Left(false)),
-            }),
-            file_operations: Some(WorkspaceFileOperationsServerCapabilities {
-                did_create: Some(lsp_types::FileOperationRegistrationOptions {
-                    filters: vec![FileOperationFilter {
-                        scheme: None,
-                        pattern: lsp_types::FileOperationPattern {
-                            glob: "**".to_string(),
-                            matches: None,
-                            options: None,
-                        },
-                    }],
-                }),
-                ..Default::default()
-            }),
-        }),
-        ..Default::default()
-    })
-    .unwrap()
 }
