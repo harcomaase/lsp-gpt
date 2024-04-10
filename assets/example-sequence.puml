@@ -1,0 +1,15 @@
+@startuml example-sequence
+
+actor Alice
+actor Eve
+actor Bob
+
+Alice -> Bob : Hi Bob!
+Bob --> Alice : Hello Alice!
+
+...
+
+Eve -> Alice : Let me ask you something...
+Eve -> Bob : Let me ask you something...
+
+@enduml
