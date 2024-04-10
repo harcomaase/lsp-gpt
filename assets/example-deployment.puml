@@ -1,13 +1,16 @@
 @startuml
 
-node node1
-node node2
-node node3
-node node4
-node node5
-node1 -- node2 : label1
-node1 .. node3 : label2
-node1 ~~ node4 : label3
-node1 == node5
+node node {
+  cloud cloud
+  artifact artifact
+  collections collections
+  database database
+  queue queue
+
+  cloud -- artifact : label1
+  cloud .. collections : label2
+  cloud ~~ database : label3
+  cloud == queue
+}
 
 @enduml
