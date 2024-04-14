@@ -63,6 +63,7 @@ fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
 }
 
 fn from_env(key: &str) -> String {
+    // read from secrets file if it exists
     if let Ok(content) = std::fs::read_to_string(create_path("/secrets.txt")) {
         for line in content.lines() {
             if let Some((k, v)) = line.split_once('=') {
@@ -72,6 +73,7 @@ fn from_env(key: &str) -> String {
             }
         }
     }
+    // else look into the environment
     std::env::var(key).expect(&format!("{key} not set as environment variable"))
 }
 
