@@ -1,0 +1,26 @@
+@startuml lsp-gpt arch
+
+package "host machine" {
+
+  package "ide" as ide {
+      [Language Client]
+  }
+
+  folder files
+  folder configuration
+  
+  [lsp-gpt]
+}
+
+cloud remote {
+    [GPT API]
+}
+
+ide --> files
+[lsp-gpt] --> configuration
+[lsp-gpt] --> files
+
+[Language Client] -> [lsp-gpt] : JSON-RPC
+[lsp-gpt] --> [GPT API] : prompted request
+
+@enduml

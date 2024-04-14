@@ -4,3 +4,4 @@ secrets.txt
 package.json
 package-lock.json
 Cargo.lock
+/assets/*.png
