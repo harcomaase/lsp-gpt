@@ -1,17 +1,19 @@
 @startuml example-sequence
 
-actor Alice
-actor Eve
-actor Bob
+actor Alice as a
+actor Eve as e
+actor Bob as b
 
-Alice -> Bob : Hi Bob!
-Bob --> Alice : Hello Alice!
+a -> b : Hi Bob!
+b --> a : Hello Alice!
 
 ...
 
-Alice -> Eve : I think someone is spying\non our conversation
-Eve -> Bob : Nice weather today, isn't it?
-Bob --> Eve : It surely is!
-Eve --> Alice : Nah, I don't think so...
+a -> e : I think someone is spying\non our conversation
+e -> b : Nice weather today, isn't it?
+b --> e : It surely is!
+e --> a : Nah, I don't think so...
 
 @enduml
+
+

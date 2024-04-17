@@ -136,7 +136,7 @@ fn handle_messages(
     // wait for messages
     for msg in &connection.receiver {
         let raw_msg = serde_json::to_string(&msg)?;
-        //log(&format!("got msg: {}", raw_msg));
+        log::info!("got msg: {}", raw_msg);
         match msg {
             Message::Request(req) => {
                 if connection.handle_shutdown(&req)? {
@@ -182,23 +182,20 @@ fn handle_messages(
                 let model = &prompt_config_entry.model;
                 let temperature = prompt_config_entry.model_temperature;
                 let prompt_quantity = messages.len();
+                let body = serde_json::to_string(&GptRequest {
+                    model: model.clone(),
+                    messages,
+                    temperature,
+                    n: 1,
+                })?;
+                log::info!("sending request to GPT API: {body}");
                 let api_request = http_client
                     .request(Method::POST, "https://api.openai.com/v1/chat/completions")
                     .header(header::CONTENT_TYPE, "application/json")
                     .header(header::AUTHORIZATION, &auth)
                     .header("OpenAI-Organization", &api_company_id)
-                    .body(serde_json::to_string(&GptRequest {
-                        model: model.clone(),
-                        messages,
-                        temperature,
-                        n: 1,
-                    })?)
+                    .body(body)
                     .build()?;
-
-                log::info!(
-                    "sending request to GPT API",
-                    //&api_request.body().unwrap()
-                );
 
                 let start = SystemTime::now();
                 let api_result = http_client.execute(api_request)?;
@@ -316,6 +313,9 @@ fn create_path(subpath: &str) -> String {
 
 fn gather_workspace_documents(params: &InitializeParams) -> std::io::Result<Vec<TextDocumentItem>> {
     let mut workspace_documents = Vec::new();
+    if 1 < 3 {
+        return Ok(workspace_documents);
+    }
     if let Some(workspace_folders) = &params.workspace_folders {
         for (worksspace_folder_index, workspace_folder) in workspace_folders.into_iter().enumerate()
         {
