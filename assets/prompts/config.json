@@ -10,11 +10,11 @@
             "method": "textDocument/completion",
             "model": "gpt-4-turbo-preview",
             "model_temperature":0.2,
-            "file": "initial-prompt.txt"
+            "file": "minimal-prompt.txt"
         },
         {
             "method": "textDocument/codeAction",
-            "model": "gpt-4-turbo-preview",
+            "model": "gpt-3.5-turbo",
             "model_temperature":0.2,
             "file": "initial-prompt.txt"
         }

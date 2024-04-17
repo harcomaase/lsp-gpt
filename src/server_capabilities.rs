@@ -1,7 +1,6 @@
 use lsp_types::{
-    FileOperationFilter, ServerCapabilities, TextDocumentSyncKind, TextDocumentSyncOptions,
-    TextDocumentSyncSaveOptions, WorkspaceFileOperationsServerCapabilities,
-    WorkspaceServerCapabilities,
+    ServerCapabilities, TextDocumentSyncKind, TextDocumentSyncOptions,
+    TextDocumentSyncSaveOptions,
 };
 
 pub(crate) fn get_server_capabilities() -> serde_json::Value {
@@ -21,8 +20,7 @@ pub(crate) fn get_server_capabilities() -> serde_json::Value {
         completion_provider: Some(lsp_types::CompletionOptions {
             ..Default::default()
         }),
-        document_highlight_provider: Some(lsp_types::OneOf::Left(true)),
-        //document_symbol_provider: Some(lsp_types::OneOf::Left(true)),
+        /*
         diagnostic_provider: Some(lsp_types::DiagnosticServerCapabilities::Options(
             lsp_types::DiagnosticOptions {
                 inter_file_dependencies: false,
@@ -30,12 +28,16 @@ pub(crate) fn get_server_capabilities() -> serde_json::Value {
                 ..Default::default()
             },
         )),
+        */
+        //references_provider: Some(lsp_types::OneOf::Left(true)),
+        //code_action_provider: Some(lsp_types::CodeActionProviderCapability::Simple(true)),
+        //rename_provider: Some(lsp_types::OneOf::Left(true)),
+
+        //document_highlight_provider: Some(lsp_types::OneOf::Left(true)),
+        //document_symbol_provider: Some(lsp_types::OneOf::Left(true)),
         //hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
-        references_provider: Some(lsp_types::OneOf::Left(true)),
-        code_action_provider: Some(lsp_types::CodeActionProviderCapability::Simple(true)),
-        document_formatting_provider: Some(lsp_types::OneOf::Left(true)),
-        document_range_formatting_provider: Some(lsp_types::OneOf::Left(true)),
-        rename_provider: Some(lsp_types::OneOf::Left(true)),
+        //document_formatting_provider: Some(lsp_types::OneOf::Left(true)),
+        //document_range_formatting_provider: Some(lsp_types::OneOf::Left(true)),
         /* semantic tokens disabled for now
         semantic_tokens_provider: Some(
             lsp_types::SemanticTokensServerCapabilities::SemanticTokensOptions(
@@ -88,6 +90,7 @@ pub(crate) fn get_server_capabilities() -> serde_json::Value {
             ),
         ),
         */
+        /*
         workspace: Some(WorkspaceServerCapabilities {
             workspace_folders: Some(lsp_types::WorkspaceFoldersServerCapabilities {
                 supported: Some(true),
@@ -107,6 +110,7 @@ pub(crate) fn get_server_capabilities() -> serde_json::Value {
                 ..Default::default()
             }),
         }),
+        */
         ..Default::default()
     })
     .unwrap()
