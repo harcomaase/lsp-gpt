@@ -10,6 +10,7 @@ use lsp_server::{Connection, Message};
 use lsp_types::{
     DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams, TextDocumentItem,
 };
+use prompt_config::PromptConfigEntry;
 use reqwest::{header, Method, Url};
 
 use crate::{
@@ -22,6 +23,8 @@ mod prompt_config;
 mod server_capabilities;
 
 const BASE_FOLDER: &str = "/home/marco/dev/projects/lsp-gpt";
+const USE_WORKSPACE_FOLDERS: bool = false;
+const USE_ADDITIONAL_PARAMETERS: bool = true;
 
 // the initial version is very much taken from the lsp-server example:
 // https://github.com/rust-lang/rust-analyzer/blob/master/lib/lsp-server/examples/goto_def.rs
@@ -145,56 +148,31 @@ fn handle_messages(
                 log::info!("got request: {req:?}");
 
                 let prompt_config_entry = prompt_config.get_or_default(&req.method);
-
-                let mut messages = Vec::with_capacity(3);
-                // prompting
-                for prompt in &prompt_config_entry.prompt_messages {
-                    messages.push(GptMessage {
-                        role: "system".to_string(),
-                        content: prompt.to_string(),
-                    });
-                }
-                // send all documents in workspace
-                //TODO: define a limit
-                let workspace_documents = gather_workspace_documents(&params)?;
-                for workspace_document in &workspace_documents {
-                    messages.push(GptMessage {
-                        role: "system".to_string(),
-                        content: serde_json::to_string(&workspace_document)?,
-                    });
-                }
-                // if workspace is not available or empty, use latest opened/changed document
-                if workspace_documents.is_empty() {
-                    if let Some(item) = &latest_text_document_item {
-                        messages.push(GptMessage {
-                            role: "system".to_string(),
-                            content: serde_json::to_string(item)?,
-                        });
-                    }
-                }
-                // actual request from client
-                messages.push(GptMessage {
-                    role: "user".to_string(),
-                    content: raw_msg,
-                });
+                let messages = create_messages(
+                    &req,
+                    raw_msg,
+                    prompt_config_entry,
+                    &params,
+                    &latest_text_document_item,
+                )?;
 
                 // query the GPT API
                 let model = &prompt_config_entry.model;
                 let temperature = prompt_config_entry.model_temperature;
                 let prompt_quantity = messages.len();
-                let body = serde_json::to_string(&GptRequest {
+                let gpt_request = serde_json::to_string(&GptRequest {
                     model: model.clone(),
                     messages,
                     temperature,
                     n: 1,
                 })?;
-                log::info!("sending request to GPT API: {body}");
+                log::info!("sending request to GPT API: {gpt_request}");
                 let api_request = http_client
                     .request(Method::POST, "https://api.openai.com/v1/chat/completions")
                     .header(header::CONTENT_TYPE, "application/json")
                     .header(header::AUTHORIZATION, &auth)
                     .header("OpenAI-Organization", &api_company_id)
-                    .body(body)
+                    .body(gpt_request)
                     .build()?;
 
                 let start = SystemTime::now();
@@ -291,6 +269,55 @@ fn handle_messages(
     Ok(())
 }
 
+fn create_messages(
+    req: &lsp_server::Request,
+    mut raw_msg: String,
+    prompt_config_entry: &PromptConfigEntry,
+    params: &InitializeParams,
+    latest_text_document_item: &Option<TextDocumentItem>,
+) -> std::io::Result<Vec<GptMessage>> {
+    let mut messages = Vec::with_capacity(3);
+    // prompting
+    for prompt in &prompt_config_entry.prompt_messages {
+        messages.push(GptMessage {
+            role: "system".to_string(),
+            content: prompt.to_string(),
+        });
+    }
+    // send all documents in workspace
+    //TODO: define a limit?
+    let workspace_documents = gather_workspace_documents(&params)?;
+    for workspace_document in &workspace_documents {
+        messages.push(GptMessage {
+            role: "system".to_string(),
+            content: serde_json::to_string(&workspace_document)?,
+        });
+    }
+    // if workspace is not available or empty, use latest opened/changed document
+    if workspace_documents.is_empty() {
+        if let Some(item) = &latest_text_document_item {
+            messages.push(GptMessage {
+                role: "system".to_string(),
+                content: serde_json::to_string(item)?,
+            });
+        }
+    }
+    // actual request from client
+    if USE_ADDITIONAL_PARAMETERS {
+        let mut wurst = req.clone();
+        let params = wurst.params.as_object_mut().unwrap();
+        params.insert("min_results".to_string(), serde_json::Value::from(3));
+        params.insert("max_results".to_string(), serde_json::Value::from(3));
+        raw_msg = serde_json::to_string(&wurst).unwrap();
+    }
+    messages.push(GptMessage {
+        role: "user".to_string(),
+        content: raw_msg,
+    });
+
+    Ok(messages)
+}
+
 /// extracts the contents of markdown JSON code blocks
 fn extract_json(response_message_raw: &str) -> &str {
     let start_element = "```json\n";
@@ -313,7 +340,7 @@ fn create_path(subpath: &str) -> String {
 
 fn gather_workspace_documents(params: &InitializeParams) -> std::io::Result<Vec<TextDocumentItem>> {
     let mut workspace_documents = Vec::new();
-    if 1 < 3 {
+    if !USE_WORKSPACE_FOLDERS {
         return Ok(workspace_documents);
     }
     if let Some(workspace_folders) = &params.workspace_folders {

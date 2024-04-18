@@ -1,0 +1,30 @@
+{
+    "id": 1,
+    "jsonrpc": "2.0",
+    "result": [
+        {
+            "label": "Add component",
+            "kind": 7,
+            "detail": "Component",
+            "documentation": "Add a new component to the diagram.",
+            "insertText": "[New Component]\n",
+            "insertTextFormat": 2
+        },
+        {
+            "label": "Add actor",
+            "kind": 7,
+            "detail": "Actor",
+            "documentation": "Add a new actor to the diagram.",
+            "insertText": ":New Actor:\n",
+            "insertTextFormat": 2
+        },
+        {
+            "label": "Add arrow",
+            "kind": 7,
+            "detail": "Arrow",
+            "documentation": "Add a new arrow/connection between components.",
+            "insertText": "-->\n",
+            "insertTextFormat": 2
+        }
+    ]
+}
