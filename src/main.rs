@@ -24,7 +24,7 @@ mod server_capabilities;
 
 const BASE_FOLDER: &str = "/home/marco/dev/projects/lsp-gpt";
 const USE_WORKSPACE_FOLDERS: bool = false;
-const USE_ADDITIONAL_PARAMETERS: bool = true;
+const USE_ADDITIONAL_PARAMETERS: bool = false;
 
 // the initial version is very much taken from the lsp-server example:
 // https://github.com/rust-lang/rust-analyzer/blob/master/lib/lsp-server/examples/goto_def.rs
@@ -302,7 +302,6 @@ fn create_messages(
             });
         }
     }
-    // actual request from client
     if USE_ADDITIONAL_PARAMETERS {
         let mut wurst = req.clone();
         let params = wurst.params.as_object_mut().unwrap();
@@ -310,6 +309,7 @@ fn create_messages(
         params.insert("max_results".to_string(), serde_json::Value::from(3));
         raw_msg = serde_json::to_string(&wurst).unwrap();
     }
+    // actual request from client
     messages.push(GptMessage {
         role: "user".to_string(),
         content: raw_msg,
