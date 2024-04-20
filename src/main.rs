@@ -8,10 +8,14 @@ use std::{
 use gpt_adapter::GptResponseUsage;
 use lsp_server::{Connection, Message};
 use lsp_types::{
-    DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams, TextDocumentItem,
+    DidChangeTextDocumentParams, DidOpenTextDocumentParams, DidSaveTextDocumentParams,
+    InitializeParams, TextDocumentItem,
 };
 use prompt_config::PromptConfigEntry;
-use reqwest::{header, Method, Url};
+use reqwest::{
+    header::{self, HeaderMap, HeaderValue},
+    Method, Url,
+};
 
 use crate::{
     gpt_adapter::{GptMessage, GptRequest, GptResponse},
@@ -28,7 +32,7 @@ const USE_ADDITIONAL_PARAMETERS: bool = false;
 
 // the initial version is very much taken from the lsp-server example:
 // https://github.com/rust-lang/rust-analyzer/blob/master/lib/lsp-server/examples/goto_def.rs
-fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
+fn main() -> Result<(), Box<dyn Error>> {
     env_logger::builder()
         .target(env_logger::Target::Stderr)
         .filter_level(log::LevelFilter::Debug)
@@ -86,7 +90,7 @@ fn log_invocation(
     method: &str,
     prompt_quantity: usize,
     usage: &GptResponseUsage,
-) -> std::io::Result<()> {
+) -> Result<(), Box<dyn Error>> {
     let filename = create_path("/invocations.csv");
 
     log::info!("logging to {filename}");
@@ -122,7 +126,7 @@ fn handle_messages(
     prompt_config: PromptConfig,
     api_key: String,
     api_company_id: String,
-) -> Result<(), Box<dyn Error + Sync + Send>> {
+) -> Result<(), Box<dyn Error>> {
     let params: InitializeParams = serde_json::from_value(params).unwrap();
 
     log::info!("connection established, waiting for messages");
@@ -132,6 +136,7 @@ fn handle_messages(
         .timeout(Some(Duration::new(60, 0)))
         .build()?;
     let auth = format!("Bearer {}", api_key);
+    let headers = create_headers(&auth, &api_company_id);
 
     // buffer for document updates
     let mut latest_text_document_item = None;
@@ -149,7 +154,6 @@ fn handle_messages(
 
                 let prompt_config_entry = prompt_config.get_or_default(&req.method);
                 let messages = create_messages(
-                    &req,
                     raw_msg,
                     prompt_config_entry,
                     &params,
@@ -159,73 +163,15 @@ fn handle_messages(
                 // query the GPT API
                 let model = &prompt_config_entry.model;
                 let temperature = prompt_config_entry.model_temperature;
-                let prompt_quantity = messages.len();
-                let gpt_request = serde_json::to_string(&GptRequest {
+                let gpt_request = GptRequest {
                     model: model.clone(),
                     messages,
                     temperature,
                     n: 1,
-                })?;
-                log::info!("sending request to GPT API: {gpt_request}");
-                let api_request = http_client
-                    .request(Method::POST, "https://api.openai.com/v1/chat/completions")
-                    .header(header::CONTENT_TYPE, "application/json")
-                    .header(header::AUTHORIZATION, &auth)
-                    .header("OpenAI-Organization", &api_company_id)
-                    .body(gpt_request)
-                    .build()?;
-
-                let start = SystemTime::now();
-                let api_result = http_client.execute(api_request)?;
-                let duration = start.elapsed()?;
-
-                // handle result
-                match api_result.text() {
-                    Ok(response) => {
-                        match serde_json::from_str::<GptResponse>(&response) {
-                            Ok(response_json) => {
-                                let _ = log_invocation(
-                                    &model,
-                                    duration,
-                                    &req.method,
-                                    prompt_quantity,
-                                    &response_json.usage,
-                                );
-                                // response is valid json, so we can use the first answer
-                                log::info!(
-                                    "got GPT response: {}",
-                                    serde_json::to_string(&response_json)?
-                                );
-                                let response_message_raw = response_json
-                                    .choices
-                                    .get(0)
-                                    .expect("no choices in response")
-                                    .message
-                                    .content
-                                    .as_str();
-
-                                let extracted_response_message = extract_json(response_message_raw);
-
-                                match serde_json::from_str(extracted_response_message) {
-                                    Ok(response_message) => {
-                                        // valid language server response
-                                        log::info!("all good, sending response to client: {response_message_raw}");
-                                        connection
-                                            .sender
-                                            .send(Message::Response(response_message))?
-                                    }
-                                    Err(err) => log::info!(
-                                        "error parsing response, err: {err}, response: {response_message_raw}"
-                                    ),
-                                }
-                            }
-                            Err(err) => log::info!(
-                                "error parsing response, err: {err}, response: {response}"
-                            ),
-                        }
-                    }
-                    Err(err) => log::info!("can not parse GPT API response, err: {err}"),
-                }
+                };
+                let response_text =
+                    send_request(gpt_request, &http_client, &headers, &req.method, model)?;
+                map_and_return_response(&response_text, &connection)
             }
             Message::Response(resp) => {
                 log::info!("got response: {resp:?}");
@@ -237,6 +183,7 @@ fn handle_messages(
                     "textDocument/didOpen" => {
                         match serde_json::from_value::<DidOpenTextDocumentParams>(not.params) {
                             Ok(text_document) => {
+                                log::info!("document opened: {:?}", &text_document);
                                 let x = text_document.text_document;
                                 latest_text_document_item = Some(x);
                                 ()
@@ -250,9 +197,49 @@ fn handle_messages(
                     "textDocument/didChange" => {
                         match serde_json::from_value::<DidChangeTextDocumentParams>(not.params) {
                             Ok(text_document) => {
-                                //let x = text_document.content_changes;
-                                log::info!("received changes: {:?}", &text_document);
-                                //latest_text_document_item = Some(x);
+                                let url = text_document.text_document.uri.as_str();
+                                log::info!("document changed: {}", url);
+                                update_latest_document(&mut latest_text_document_item, url)?;
+                            }
+                            Err(err) => log::info!("can not parse didChange notification {err}"),
+                        }
+                    }
+                    "textDocument/didSave" => {
+                        // the user saved the document, this triggers a diagnostics request
+                        match serde_json::from_value::<DidSaveTextDocumentParams>(not.params) {
+                            Ok(did_save_params) => {
+                                log::info!("received save event: {:?}", &did_save_params);
+                                let url = did_save_params.text_document.uri.as_str();
+                                update_latest_document(&mut latest_text_document_item, url)?;
+
+                                let diagnostic_request_msg =
+                                    format!("{{\"method\":\"textDocument/completion\",\"params\":{{\"textDocument\":{{\"uri\":\"{url}\"}}}}}}");
+
+                                let prompt_config_entry = prompt_config.get_or_default(&not.method);
+                                let messages = create_messages(
+                                    diagnostic_request_msg,
+                                    prompt_config_entry,
+                                    &params,
+                                    &latest_text_document_item,
+                                )?;
+
+                                // query the GPT API
+                                let model = &prompt_config_entry.model;
+                                let temperature = prompt_config_entry.model_temperature;
+                                let gpt_request = GptRequest {
+                                    model: model.clone(),
+                                    messages,
+                                    temperature,
+                                    n: 1,
+                                };
+                                let response_text = send_request(
+                                    gpt_request,
+                                    &http_client,
+                                    &headers,
+                                    &not.method,
+                                    model,
+                                )?;
+                                map_and_return_response(&response_text, &connection);
                                 ()
                             }
                             Err(err) => {
@@ -269,8 +256,101 @@ fn handle_messages(
     Ok(())
 }
 
+fn map_and_return_response(response_text: &str, connection: &Connection) {
+    match serde_json::from_str(response_text) {
+        Ok(response_message) => {
+            // valid language server response
+            log::info!("all good, sending response to client: {response_text}");
+            if let Err(err) = connection.sender.send(Message::Response(response_message)) {
+                log::info!("could not send response to client: {err}")
+            }
+        }
+        Err(err) => {
+            log::info!("error parsing response, err: {err}, response: {response_text}")
+        }
+    }
+}
+
+fn update_latest_document(
+    latest_text_document_item: &mut Option<TextDocumentItem>,
+    url: &str,
+) -> std::io::Result<()> {
+    if let Some(doc) = latest_text_document_item {
+        // update only if the URLs match
+        if doc.uri.as_str().eq(url) {
+            doc.text = read_file(url)?;
+        }
+    }
+    Ok(())
+}
+
+fn create_headers(auth: &str, api_company_id: &str) -> HeaderMap {
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("application/json"),
+    );
+    headers.insert(header::AUTHORIZATION, auth.parse().unwrap());
+    headers.insert("OpenAI-Organization", api_company_id.parse().unwrap());
+    headers
+}
+
+fn send_request(
+    gpt_request: GptRequest,
+    http_client: &reqwest::blocking::Client,
+    headers: &HeaderMap,
+    method: &str,
+    model: &str,
+) -> Result<String, Box<dyn Error>> {
+    let request = serde_json::to_string(&gpt_request)?;
+    log::info!("sending request to GPT API: {request}");
+
+    // build request
+    let api_request = http_client
+        .request(Method::POST, "https://api.openai.com/v1/chat/completions")
+        .headers(headers.clone())
+        .body(request)
+        .build()?;
+
+    // execute request and measure time
+    let start = SystemTime::now();
+    let api_result = http_client.execute(api_request)?;
+    let duration = start.elapsed()?;
+
+    // handle result
+    let response = api_result.text()?;
+    let response_json = serde_json::from_str::<GptResponse>(&response)?;
+    log_invocation(
+        model,
+        duration,
+        method,
+        gpt_request.messages.len(),
+        &response_json.usage,
+    )?;
+
+    // response is valid json, so we can use the first answer
+    log::info!(
+        "got GPT response: {}",
+        serde_json::to_string(&response_json)?
+    );
+    let response_message_raw = response_json
+        .choices
+        .get(0) // first answer
+        .expect("no choices in response")
+        .message
+        .content
+        .as_str();
+
+    let extracted_response_message = extract_json(response_message_raw);
+    Ok(extracted_response_message.to_string())
+}
+
+fn read_file(url: &str) -> std::io::Result<String> {
+    let file = url.strip_prefix("file://").unwrap_or(url);
+    std::fs::read_to_string(&file)
+}
+
 fn create_messages(
-    req: &lsp_server::Request,
     mut raw_msg: String,
     prompt_config_entry: &PromptConfigEntry,
     params: &InitializeParams,
@@ -303,11 +383,11 @@ fn create_messages(
         }
     }
     if USE_ADDITIONAL_PARAMETERS {
-        let mut wurst = req.clone();
-        let params = wurst.params.as_object_mut().unwrap();
+        let mut req: lsp_server::Request = serde_json::from_str(&raw_msg)?;
+        let params = req.params.as_object_mut().unwrap();
         params.insert("min_results".to_string(), serde_json::Value::from(3));
         params.insert("max_results".to_string(), serde_json::Value::from(3));
-        raw_msg = serde_json::to_string(&wurst).unwrap();
+        raw_msg = serde_json::to_string(&req).unwrap();
     }
     // actual request from client
     messages.push(GptMessage {
@@ -346,10 +426,6 @@ fn gather_workspace_documents(params: &InitializeParams) -> std::io::Result<Vec<
     if let Some(workspace_folders) = &params.workspace_folders {
         for (worksspace_folder_index, workspace_folder) in workspace_folders.into_iter().enumerate()
         {
-            //log(&format!(
-            //    "in workspace folder: {}",
-            //    &workspace_folder.uri.as_str()
-            //));
             let path = workspace_folder.uri.as_str();
             let path = path.strip_prefix("file://").unwrap_or(path);
             let directory = &PathBuf::from(path);
