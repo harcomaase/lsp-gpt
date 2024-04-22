@@ -212,8 +212,9 @@ fn handle_messages(
                                 let url = did_save_params.text_document.uri.as_str();
                                 update_latest_document(&mut latest_text_document_item, url)?;
 
+                                let method = "textDocument/diagnostic";
                                 let diagnostic_request_msg =
-                                    format!("{{\"method\":\"textDocument/completion\",\"params\":{{\"textDocument\":{{\"uri\":\"{url}\"}}}}}}");
+                                    format!("{{\"method\":\"{method}\",\"params\":{{\"textDocument\":{{\"uri\":\"{url}\"}}, \"response_type\":\"notification\"}}}}");
 
                                 let prompt_config_entry = prompt_config.get_or_default(&not.method);
                                 let messages = create_messages(
@@ -236,10 +237,10 @@ fn handle_messages(
                                     gpt_request,
                                     &http_client,
                                     &headers,
-                                    &not.method,
+                                    &format!("{}#{}", method, not.method),
                                     model,
                                 )?;
-                                map_and_return_response(&response_text, &connection);
+                                map_and_return_notification(&response_text, &connection);
                                 ()
                             }
                             Err(err) => {
@@ -267,6 +268,24 @@ fn map_and_return_response(response_text: &str, connection: &Connection) {
         }
         Err(err) => {
             log::info!("error parsing response, err: {err}, response: {response_text}")
+        }
+    }
+}
+
+fn map_and_return_notification(response_text: &str, connection: &Connection) {
+    match serde_json::from_str(response_text) {
+        Ok(response_message) => {
+            // valid language server response
+            log::info!("all good, sending notification to client: {response_text}");
+            if let Err(err) = connection
+                .sender
+                .send(Message::Notification(response_message))
+            {
+                log::info!("could not send notification to client: {err}")
+            }
+        }
+        Err(err) => {
+            log::info!("error parsing server notification, err: {err}, response: {response_text}")
         }
     }
 }

@@ -1,0 +1,23 @@
+{
+    "method": "textDocument/publishDiagnostics",
+    "params": {
+        "uri": "file:///home/marco/dev/projects/lsp-gpt/assets/ls-arch.puml",
+        "diagnostics": [
+            {
+                "range": {
+                    "start": {
+                        "line": 13,
+                        "character": 0
+                    },
+                    "end": {
+                        "line": 13,
+                        "character": 7
+                    }
+                },
+                "severity": 1,
+                "message": "Unknown element 'dings'.",
+                "source": "lsp-gpt-plantuml"
+            }
+        ]
+    }
+}
