@@ -1,0 +1,9 @@
+{
+    "method": "textDocument/diagnostic",
+    "params": {
+        "textDocument": {
+            "uri": "file:///home/marco/dev/projects/lsp-gpt/assets/ls-arch.puml"
+        },
+        "response_type": "notification"
+    }
+}

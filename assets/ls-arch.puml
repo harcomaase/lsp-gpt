@@ -17,8 +17,8 @@ package "host machine" {
 cloud remote {
     [GPT API]
 }
-
-ide --> files
+schmock
+ide <--> files
 [lsp-gpt] --> configuration
 [lsp-gpt] --> files
 
