@@ -174,13 +174,14 @@ fn handle_messages(
                 map_and_return_response(&response_text, &connection)
             }
             Message::Response(resp) => {
-                log::info!("got response: {resp:?}");
+                log::info!("got response (why though?): {resp:?}");
             }
             Message::Notification(not) => {
                 // notification handling, for updates about textDocuments
                 log::info!("got notification: {not:?}");
                 match not.method.as_str() {
                     "textDocument/didOpen" => {
+                        // text document opened, cache its contents
                         match serde_json::from_value::<DidOpenTextDocumentParams>(not.params) {
                             Ok(text_document) => {
                                 log::info!("document opened: {:?}", &text_document);
@@ -195,6 +196,7 @@ fn handle_messages(
                         }
                     }
                     "textDocument/didChange" => {
+                        // text document changed, update cached contents
                         match serde_json::from_value::<DidChangeTextDocumentParams>(not.params) {
                             Ok(text_document) => {
                                 let url = text_document.text_document.uri.as_str();
@@ -213,6 +215,8 @@ fn handle_messages(
                                 update_latest_document(&mut latest_text_document_item, url)?;
 
                                 let method = "textDocument/diagnostic";
+                                //HACK: very ugly and manual way of constructing that request
+                                //TODO: refactor to use struct or at least something serde-ish
                                 let diagnostic_request_msg =
                                     format!("{{\"method\":\"{method}\",\"params\":{{\"textDocument\":{{\"uri\":\"{url}\"}}, \"response_type\":\"notification\"}}}}");
 
