@@ -3,6 +3,7 @@
 actor a as "Judy"
 actor b as "James"
 
+note right of a :::: This is a note
 a -> b : Hi James, how are you?
 b --> a : All good! And you?
 a -> b : Thank you, I'm fine! One question: do you know a good operating system?
