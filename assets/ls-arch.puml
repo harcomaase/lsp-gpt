@@ -5,19 +5,19 @@ skinparam Linetype ortho
 package "host machine" {
 
   package "ide" as ide {
-      [Language Client]
+      [Language Client] #99FF99
   }
 
   folder files
-  folder configuration
+  folder configuration #99FF99
   
-  [lsp-gpt]
+  [lsp-gpt] #99FF99
 }
 
 cloud remote {
     [GPT API]
 }
-schmock
+
 ide <--> files
 [lsp-gpt] --> configuration
 [lsp-gpt] --> files
