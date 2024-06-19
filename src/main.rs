@@ -2,6 +2,7 @@ use std::{
     error::Error,
     io::Write,
     path::PathBuf,
+    str::FromStr,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -9,12 +10,12 @@ use gpt_adapter::GptResponseUsage;
 use lsp_server::{Connection, Message};
 use lsp_types::{
     DidChangeTextDocumentParams, DidOpenTextDocumentParams, DidSaveTextDocumentParams,
-    InitializeParams, TextDocumentItem,
+    InitializeParams, TextDocumentItem, Uri,
 };
 use prompt_config::PromptConfigEntry;
 use reqwest::{
     header::{self, HeaderMap, HeaderValue},
-    Method, Url,
+    Method,
 };
 
 use crate::{
@@ -454,7 +455,7 @@ fn gather_workspace_documents(params: &InitializeParams) -> std::io::Result<Vec<
             let directory = &PathBuf::from(path);
             for (file_index, file) in collect_puml_files(directory)?.into_iter().enumerate() {
                 let content = std::fs::read_to_string(&file)?;
-                let url = Url::parse(&format!(
+                let uri = Uri::from_str(&format!(
                     "file://{}",
                     file.to_str().unwrap_or(
                         format!("{}-{}.puml", worksspace_folder_index, file_index).as_str()
@@ -463,7 +464,7 @@ fn gather_workspace_documents(params: &InitializeParams) -> std::io::Result<Vec<
                 .unwrap();
                 workspace_documents.push(TextDocumentItem {
                     language_id: "plantuml".to_string(),
-                    uri: url,
+                    uri,
                     version: 1,
                     text: content,
                 });

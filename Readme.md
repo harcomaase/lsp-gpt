@@ -1,3 +1,5 @@
+![build badge](https://github.com/harcomaase/lsp-gpt/actions/workflows/build.yml/badge.svg)
+
 # lsp-gpt
 
 ... let's use GPT-4 as language server!
