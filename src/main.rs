@@ -476,6 +476,7 @@ fn gather_workspace_documents(params: &InitializeParams) -> std::io::Result<Vec<
 
 fn collect_puml_files(path: &PathBuf) -> std::io::Result<Vec<PathBuf>> {
     let mut files = Vec::new();
+    //TODO: other file extensions could be needed to; make configurable?
     if path.is_file() && path.extension().map_or(false, |e| e.eq("puml")) {
         files.push(path.clone());
     } else if path.is_dir() {
