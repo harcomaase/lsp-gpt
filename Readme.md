@@ -381,7 +381,7 @@ a manifest for the extension. This `contributes` property describes the name of 
 extensions and it requires a minimal language configuration (e.g. how line comments look like, which
 brackets are used).
 
-In order to run the extension for testing and debugging purposes, the following modules habe to be installed:
+In order to run the extension for testing and debugging purposes, the following modules have to be installed:
 
 ```bash
 # install node and the node package manager (if not present yet)
