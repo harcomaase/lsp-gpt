@@ -10,7 +10,12 @@ module.exports = {
             debug: { command: command },
         };
         const clientOptions = {
-            documentSelector: [{ scheme: "file", language: "plantuml" }],
+            documentSelector: [
+                {
+                    scheme: "file",
+                    language: "plantuml"
+                }
+            ],
         };
         client = new LanguageClient(
             "lsp-gpt-prototype",

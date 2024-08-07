@@ -359,7 +359,7 @@ fn send_request(
     );
     let response_message_raw = response_json
         .choices
-        .get(0) // first answer
+        .first()
         .expect("no choices in response")
         .message
         .content
