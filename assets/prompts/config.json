@@ -10,7 +10,7 @@
             "method": "textDocument/completion",
             "model": "gpt-4o",
             "model_temperature":0.2,
-            "file": "initial-prompt.txt"
+            "file": "prompt2.txt"
         },
         {
             "method": "textDocument/codeAction",

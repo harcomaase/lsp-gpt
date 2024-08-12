@@ -1,18 +1,14 @@
 @startuml example-sequence
 
 actor Alice as a
-actor Eve as e
 actor Bob as b
 
 a -> b : Hi Bob!
-b --> a : Hello Alice!
-
-...
-
-a -> e : I think someone is spying\non our conversation
-e -> b : Nice weather today, isn't it?
-b --> e : It surely is!
-e --> a : Nah, I don't think so...
+b --> a : Hallo Alice!
+a -> b : Sag mal, wie sagt man noch gleich zu dieser laenglich-eifoermigen violett-blauen Frucht?
+b --> a : Meinst du eine Zwetschge?
+a -> b : Ja genau, vielen Dank!
+b --> a : Gerne!
 
 @enduml
 
