@@ -1,0 +1,1 @@
+To assist you with the completion request for your PlantUML file, I'll need some context from the file `example-sequence.puml`. Could you please provide the content of the file or at least the lines around the specified position (line 8, character 0)? This will help me generate accurate and relevant completions for you.
