@@ -124,7 +124,7 @@ fn log_invocation(
 fn handle_messages(
     connection: Connection,
     params: serde_json::Value,
-    prompt_config: PromptConfig,
+    mut prompt_config: PromptConfig,
     api_key: String,
     api_company_id: String,
 ) -> Result<(), Box<dyn Error>> {
@@ -343,6 +343,7 @@ fn send_request(
 
     // handle result
     let response = api_result.text()?;
+    log::info!("got GPT response: {}", &response);
     let response_json = serde_json::from_str::<GptResponse>(&response)?;
     log_invocation(
         model,
@@ -353,10 +354,6 @@ fn send_request(
     )?;
 
     // response is valid json, so we can use the first answer
-    log::info!(
-        "got GPT response: {}",
-        serde_json::to_string(&response_json)?
-    );
     let response_message_raw = response_json
         .choices
         .first()

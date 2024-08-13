@@ -4,7 +4,13 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct PromptConfig {
-    pub(crate) prompts: Vec<PromptConfigEntry>,
+    folder: String,
+    file: PromptConfigFile,
+}
+
+#[derive(Serialize, Deserialize)]
+struct PromptConfigFile {
+    prompts: Vec<PromptConfigEntry>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -18,21 +24,48 @@ pub(crate) struct PromptConfigEntry {
 }
 
 const FALLBACK: &str = "fallback";
+const ALWAYS_RELOAD: bool = true;
 
 impl From<&str> for PromptConfig {
     /// read prompt config and associated prompt files
     fn from(folder: &str) -> Self {
-        let mut config_file = PathBuf::new();
-        config_file.push(folder);
-        config_file.push("config.json");
-        let mut config: PromptConfig = match std::fs::read_to_string(&config_file) {
+        PromptConfig {
+            file: Self::read_config_files(folder),
+            folder: folder.to_string(),
+        }
+    }
+}
+
+impl PromptConfigFile {
+    fn get(&self, method: &str) -> Option<&PromptConfigEntry> {
+        self.prompts.iter().find(|p| p.method.eq(method))
+    }
+}
+
+impl PromptConfig {
+    pub(crate) fn get_or_default(&mut self, method: &str) -> &PromptConfigEntry {
+        if ALWAYS_RELOAD {
+            self.file = Self::read_config_files(&self.folder);
+        }
+        self.get(method).or(self.get(FALLBACK)).unwrap()
+    }
+
+    fn get(&self, method: &str) -> Option<&PromptConfigEntry> {
+        self.file.get(method)
+    }
+
+    fn read_config_files(folder: &str) -> PromptConfigFile {
+        let mut config_file_path = PathBuf::new();
+        config_file_path.push(folder);
+        config_file_path.push("config.json");
+        let mut config_file: PromptConfigFile = match std::fs::read_to_string(&config_file_path) {
             Ok(file_content) => {
                 serde_json::from_str(&file_content).expect("can not read prompt config")
             }
             Err(err) => panic!("can not find prompt config: {err}"),
         };
 
-        for entry in &mut config.prompts {
+        for entry in &mut config_file.prompts {
             let mut file = PathBuf::new();
             file.push(folder);
             file.push(&entry.file);
@@ -47,20 +80,10 @@ impl From<&str> for PromptConfig {
             }
         }
 
-        if config.get(FALLBACK).is_none() {
+        if config_file.get(FALLBACK).is_none() {
             panic!("no default/fallback prompt in config. Please add an entry with `method` name '{FALLBACK}'");
         }
 
-        config
-    }
-}
-
-impl PromptConfig {
-    pub(crate) fn get_or_default(&self, method: &str) -> &PromptConfigEntry {
-        self.get(method).or(self.get(FALLBACK)).unwrap()
-    }
-
-    fn get(&self, method: &str) -> Option<&PromptConfigEntry> {
-        self.prompts.iter().find(|p| p.method.eq(method))
+        config_file
     }
 }

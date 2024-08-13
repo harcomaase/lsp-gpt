@@ -20,15 +20,15 @@ pub(crate) fn get_server_capabilities() -> serde_json::Value {
         completion_provider: Some(lsp_types::CompletionOptions {
             ..Default::default()
         }),
-        diagnostic_provider: Some(lsp_types::DiagnosticServerCapabilities::Options(
-            lsp_types::DiagnosticOptions {
-                inter_file_dependencies: false,
-                workspace_diagnostics: false,
-                ..Default::default()
-            },
-        )),
+        //diagnostic_provider: Some(lsp_types::DiagnosticServerCapabilities::Options(
+        //    lsp_types::DiagnosticOptions {
+        //        inter_file_dependencies: false,
+        //        workspace_diagnostics: false,
+        //        ..Default::default()
+        //    },
+        //)),
         //references_provider: Some(lsp_types::OneOf::Left(true)),
-        code_action_provider: Some(lsp_types::CodeActionProviderCapability::Simple(true)),
+        //code_action_provider: Some(lsp_types::CodeActionProviderCapability::Simple(true)),
         //rename_provider: Some(lsp_types::OneOf::Left(true)),
 
         //document_highlight_provider: Some(lsp_types::OneOf::Left(true)),
