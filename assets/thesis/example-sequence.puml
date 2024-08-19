@@ -2,9 +2,11 @@
 
 actor Alice as a
 actor Bob as b
+actor Charles as c
 
 a -> b : Hi Bob!
 b --> a : Hallo Alice!
+
 a -> b : Sag mal, wie sagt man noch gleich zu dieser kleinen laenglich-eifoermigen violett-blauen Frucht?
 b --> a : Meinst du eine Zwetschge?
 a -> b : Ja genau, vielen Dank!
