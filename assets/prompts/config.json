@@ -3,20 +3,20 @@
         {
             "method": "fallback",
             "model": "gpt-4o",
-            "model_temperature":0.2,
-            "file": "initial-prompt.txt"
+            "model_temperature": 0.2,
+            "file": "prompt-analysis-diagnostics.txt"
         },
         {
             "method": "textDocument/completion",
             "model": "gpt-4o",
-            "model_temperature":0.2,
-            "file": "prompt5.txt"
+            "model_temperature": 0.2,
+            "file": "prompt-analysis-completion.txt"
         },
         {
             "method": "textDocument/codeAction",
             "model": "gpt-4o",
-            "model_temperature":0.2,
-            "file": "initial-prompt.txt"
+            "model_temperature": 0.2,
+            "file": "prompt5.txt"
         }
     ]
 }
