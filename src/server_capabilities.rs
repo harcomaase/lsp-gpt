@@ -27,7 +27,8 @@ pub(crate) fn get_server_capabilities() -> serde_json::Value {
         //        ..Default::default()
         //    },
         //)),
-        //references_provider: Some(lsp_types::OneOf::Left(true)),
+        references_provider: Some(lsp_types::OneOf::Left(true)),
+        definition_provider: Some(lsp_types::OneOf::Left(true)),
         //code_action_provider: Some(lsp_types::CodeActionProviderCapability::Simple(true)),
         //rename_provider: Some(lsp_types::OneOf::Left(true)),
 
