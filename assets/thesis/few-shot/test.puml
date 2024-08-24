@@ -1,0 +1,13 @@
+@startuml
+
+actor Client
+participant "Authorization Server" 
+participant "Resource Server"
+
+Client -> "Authorization Server" : client authentication
+"Authorization Server" --> Client : access token
+
+Client -> "Resource Server" : access token
+
+
+@enduml

@@ -9,7 +9,7 @@
         "args": [
           "--extensionDevelopmentPath=${workspaceFolder}/clients/vscode",
           "--profile-temp", // temporary profile in order to disable extensions
-          "${workspaceRoot}/assets/" // open folder with plantuml files
+          "${workspaceRoot}/assets/thesis/few-shot/" // open folder with plantuml files
         ]
       }
     ]
