@@ -28,7 +28,7 @@ mod prompt_config;
 mod server_capabilities;
 
 const BASE_FOLDER: &str = "/home/marco/dev/projects/lsp-gpt";
-const USE_WORKSPACE_FOLDERS: bool = false;
+const USE_WORKSPACE_FOLDERS: bool = true;
 const USE_ADDITIONAL_PARAMETERS: bool = false;
 
 // the initial version is very much taken from the lsp-server example:
