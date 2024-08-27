@@ -3,19 +3,21 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ApplicationConfig {
-    pub(crate) language: String,
+    pub(crate) language_id: String,
     pub(crate) file_extensions: Vec<String>,
+    #[serde(skip)]
     pub(crate) prompt_config: PromptConfig,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 pub(crate) struct PromptConfig {
     folder: String,
     file: PromptConfigFile,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 struct PromptConfigFile {
     prompts: Vec<PromptConfigEntry>,
 }
@@ -44,6 +46,12 @@ impl From<&str> for ApplicationConfig {
             }
             Err(err) => panic!("can not find application config: {err}"),
         };
+        //TODO: there could be a better way
+        assert!(!config_file.language_id.is_empty(), "language_id expected");
+        assert!(
+            !config_file.file_extensions.is_empty(),
+            "list of file extensions expected"
+        );
         Self {
             prompt_config: PromptConfig::from(folder),
             ..config_file
@@ -94,15 +102,23 @@ impl PromptConfig {
         for entry in &mut config_file.prompts {
             let mut file = PathBuf::new();
             file.push(folder);
+            file.push("prompts/");
             file.push(&entry.file);
-            match std::fs::read_to_string(file) {
+            match std::fs::read_to_string(&file) {
                 Ok(file_content) => {
                     entry.prompt_messages = file_content
                         .split("\n\n")
                         .map(|paragraph| paragraph.to_string())
                         .collect()
                 }
-                Err(err) => panic!("can not find prompt file for '{}': {}", entry.file, err),
+                Err(err) => {
+                    panic!(
+                        "can not find prompt file for '{}' (at {}): {}",
+                        entry.file,
+                        &file.to_str().unwrap(),
+                        err
+                    )
+                }
             }
         }
 
