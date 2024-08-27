@@ -50,7 +50,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let initialization_params = connection.initialize(server_capabilities)?;
 
     // read prompt config
-    let application_config = ApplicationConfig::from(create_path("/assets/prompts/").as_str());
+    let application_config = ApplicationConfig::from(create_path("/assets/").as_str());
 
     // enter the main event loop
     handle_messages(
@@ -154,7 +154,8 @@ fn handle_messages(
                     application_config.prompt_config.get_or_default(&req.method);
                 let messages = create_messages(
                     raw_msg,
-                    &application_config.language,
+                    &application_config.language_id,
+                    &application_config.file_extensions,
                     prompt_config_entry,
                     &params,
                     &latest_text_document_item,
@@ -224,7 +225,8 @@ fn handle_messages(
                                     application_config.prompt_config.get_or_default(&not.method);
                                 let messages = create_messages(
                                     diagnostic_request_msg,
-                                    &application_config.language,
+                                    &application_config.language_id,
+                                    &application_config.file_extensions,
                                     prompt_config_entry,
                                     &params,
                                     &latest_text_document_item,
@@ -375,6 +377,7 @@ fn read_file(url: &str) -> std::io::Result<String> {
 fn create_messages(
     mut raw_msg: String,
     language_id: &str,
+    file_extensions: &Vec<String>,
     prompt_config_entry: &PromptConfigEntry,
     params: &InitializeParams,
     latest_text_document_item: &Option<TextDocumentItem>,
@@ -389,7 +392,7 @@ fn create_messages(
     }
     // send all documents in workspace
     //TODO: define a limit?
-    let workspace_documents = gather_workspace_documents(&params, language_id)?;
+    let workspace_documents = gather_workspace_documents(&params, language_id, file_extensions)?;
     for workspace_document in &workspace_documents {
         messages.push(GptMessage {
             role: "system".to_string(),
@@ -444,6 +447,7 @@ fn create_path(subpath: &str) -> String {
 fn gather_workspace_documents(
     params: &InitializeParams,
     language_id: &str,
+    file_extensions: &Vec<String>,
 ) -> std::io::Result<Vec<TextDocumentItem>> {
     let mut workspace_documents = Vec::new();
     if !USE_WORKSPACE_FOLDERS {
@@ -455,12 +459,18 @@ fn gather_workspace_documents(
             let path = workspace_folder.uri.as_str();
             let path = path.strip_prefix("file://").unwrap_or(path);
             let directory = &PathBuf::from(path);
-            for (file_index, file) in collect_puml_files(directory)?.into_iter().enumerate() {
+            for (file_index, file) in collect_files(directory, file_extensions)?
+                .into_iter()
+                .enumerate()
+            {
                 let content = std::fs::read_to_string(&file)?;
+
+                let extension = file.extension().map(|e| e.to_str().unwrap()).unwrap();
                 let uri = Uri::from_str(&format!(
                     "file://{}",
                     file.to_str().unwrap_or(
-                        format!("{}-{}.puml", worksspace_folder_index, file_index).as_str()
+                        format!("{}-{}.{}", worksspace_folder_index, file_index, extension)
+                            .as_str()
                     )
                 ))
                 .unwrap();
@@ -476,15 +486,20 @@ fn gather_workspace_documents(
     Ok(workspace_documents)
 }
 
-fn collect_puml_files(path: &PathBuf) -> std::io::Result<Vec<PathBuf>> {
+fn collect_files(path: &PathBuf, file_extensions: &Vec<String>) -> std::io::Result<Vec<PathBuf>> {
     let mut files = Vec::new();
-    //TODO: other file extensions could be needed to; make configurable?
-    if path.is_file() && path.extension().map_or(false, |e| e.eq("puml")) {
+    if path.is_file()
+        && path.extension().map_or(false, |e| {
+            file_extensions
+                .iter()
+                .any(|file_extension| e.to_str().unwrap().eq(file_extension))
+        })
+    {
         files.push(path.clone());
     } else if path.is_dir() {
         for entry in std::fs::read_dir(path)? {
             let entry = entry?;
-            let mut entry_files = collect_puml_files(&entry.path())?;
+            let mut entry_files = collect_files(&entry.path(), file_extensions)?;
             files.append(&mut entry_files);
         }
     }
