@@ -6,25 +6,22 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
+use application_config::{ApplicationConfig, PromptConfigEntry};
 use gpt_adapter::GptResponseUsage;
 use lsp_server::{Connection, Message};
 use lsp_types::{
     DidChangeTextDocumentParams, DidOpenTextDocumentParams, DidSaveTextDocumentParams,
     InitializeParams, TextDocumentItem, Uri,
 };
-use prompt_config::PromptConfigEntry;
 use reqwest::{
     header::{self, HeaderMap, HeaderValue},
     Method,
 };
 
-use crate::{
-    gpt_adapter::{GptMessage, GptRequest, GptResponse},
-    prompt_config::PromptConfig,
-};
+use crate::gpt_adapter::{GptMessage, GptRequest, GptResponse};
 
+mod application_config;
 mod gpt_adapter;
-mod prompt_config;
 mod server_capabilities;
 
 const BASE_FOLDER: &str = "/home/marco/dev/projects/lsp-gpt";
@@ -53,13 +50,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     let initialization_params = connection.initialize(server_capabilities)?;
 
     // read prompt config
-    let prompt_config = PromptConfig::from(create_path("/assets/prompts/").as_str());
+    let application_config = ApplicationConfig::from(create_path("/assets/prompts/").as_str());
 
     // enter the main event loop
     handle_messages(
         connection,
         initialization_params,
-        prompt_config,
+        application_config,
         api_key,
         api_company_id,
     )?;
@@ -124,7 +121,7 @@ fn log_invocation(
 fn handle_messages(
     connection: Connection,
     params: serde_json::Value,
-    mut prompt_config: PromptConfig,
+    mut application_config: ApplicationConfig,
     api_key: String,
     api_company_id: String,
 ) -> Result<(), Box<dyn Error>> {
@@ -153,9 +150,11 @@ fn handle_messages(
                 }
                 log::info!("got request: {req:?}");
 
-                let prompt_config_entry = prompt_config.get_or_default(&req.method);
+                let prompt_config_entry =
+                    application_config.prompt_config.get_or_default(&req.method);
                 let messages = create_messages(
                     raw_msg,
+                    &application_config.language,
                     prompt_config_entry,
                     &params,
                     &latest_text_document_item,
@@ -221,9 +220,11 @@ fn handle_messages(
                                 let diagnostic_request_msg =
                                     format!("{{\"method\":\"{method}\",\"params\":{{\"textDocument\":{{\"uri\":\"{url}\"}}, \"response_type\":\"notification\"}}}}");
 
-                                let prompt_config_entry = prompt_config.get_or_default(&not.method);
+                                let prompt_config_entry =
+                                    application_config.prompt_config.get_or_default(&not.method);
                                 let messages = create_messages(
                                     diagnostic_request_msg,
+                                    &application_config.language,
                                     prompt_config_entry,
                                     &params,
                                     &latest_text_document_item,
@@ -373,6 +374,7 @@ fn read_file(url: &str) -> std::io::Result<String> {
 
 fn create_messages(
     mut raw_msg: String,
+    language_id: &str,
     prompt_config_entry: &PromptConfigEntry,
     params: &InitializeParams,
     latest_text_document_item: &Option<TextDocumentItem>,
@@ -387,7 +389,7 @@ fn create_messages(
     }
     // send all documents in workspace
     //TODO: define a limit?
-    let workspace_documents = gather_workspace_documents(&params)?;
+    let workspace_documents = gather_workspace_documents(&params, language_id)?;
     for workspace_document in &workspace_documents {
         messages.push(GptMessage {
             role: "system".to_string(),
@@ -439,7 +441,10 @@ fn create_path(subpath: &str) -> String {
     format!("{BASE_FOLDER}{subpath}")
 }
 
-fn gather_workspace_documents(params: &InitializeParams) -> std::io::Result<Vec<TextDocumentItem>> {
+fn gather_workspace_documents(
+    params: &InitializeParams,
+    language_id: &str,
+) -> std::io::Result<Vec<TextDocumentItem>> {
     let mut workspace_documents = Vec::new();
     if !USE_WORKSPACE_FOLDERS {
         return Ok(workspace_documents);
@@ -460,7 +465,7 @@ fn gather_workspace_documents(params: &InitializeParams) -> std::io::Result<Vec<
                 ))
                 .unwrap();
                 workspace_documents.push(TextDocumentItem {
-                    language_id: "plantuml".to_string(),
+                    language_id: language_id.to_string(),
                     uri,
                     version: 1,
                     text: content,

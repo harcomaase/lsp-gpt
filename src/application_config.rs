@@ -3,6 +3,13 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
+pub(crate) struct ApplicationConfig {
+    pub(crate) language: String,
+    pub(crate) file_extensions: Vec<String>,
+    pub(crate) prompt_config: PromptConfig,
+}
+
+#[derive(Serialize, Deserialize)]
 pub(crate) struct PromptConfig {
     folder: String,
     file: PromptConfigFile,
@@ -25,6 +32,24 @@ pub(crate) struct PromptConfigEntry {
 
 const FALLBACK: &str = "fallback";
 const ALWAYS_RELOAD: bool = true;
+
+impl From<&str> for ApplicationConfig {
+    fn from(folder: &str) -> Self {
+        let mut config_file_path = PathBuf::new();
+        config_file_path.push(folder);
+        config_file_path.push("config.json");
+        let config_file: Self = match std::fs::read_to_string(&config_file_path) {
+            Ok(file_content) => {
+                serde_json::from_str(&file_content).expect("can not read application config")
+            }
+            Err(err) => panic!("can not find application config: {err}"),
+        };
+        Self {
+            prompt_config: PromptConfig::from(folder),
+            ..config_file
+        }
+    }
+}
 
 impl From<&str> for PromptConfig {
     /// read prompt config and associated prompt files
@@ -57,6 +82,7 @@ impl PromptConfig {
     fn read_config_files(folder: &str) -> PromptConfigFile {
         let mut config_file_path = PathBuf::new();
         config_file_path.push(folder);
+        config_file_path.push("prompts/");
         config_file_path.push("config.json");
         let mut config_file: PromptConfigFile = match std::fs::read_to_string(&config_file_path) {
             Ok(file_content) => {
