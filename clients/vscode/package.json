@@ -28,7 +28,18 @@
 				"aliases": [
 					"PlantUML"
 				],
-				"configuration": "./language-configuration.json"
+				"configuration": "./language-configuration-plantuml.json"
+			},
+			{
+				"id": "latex",
+				"extensions": [
+					".tex",
+					".bib"
+				],
+				"aliases": [
+					"LaTeX"
+				],
+				"configuration": "./language-configuration-latex.json"
 			}
 		]
 	}
