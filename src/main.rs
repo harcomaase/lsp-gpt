@@ -82,6 +82,7 @@ fn from_env(key: &str) -> String {
     std::env::var(key).expect(&format!("{key} not set as environment variable"))
 }
 
+
 fn log_invocation(
     model: &str,
     duration: Duration,
@@ -279,6 +280,7 @@ fn map_and_return_response(response_text: &str, connection: &Connection) {
         }
     }
 }
+
 
 fn map_and_return_notification(response_text: &str, connection: &Connection) {
     match serde_json::from_str(response_text) {
@@ -505,3 +507,4 @@ fn collect_files(path: &PathBuf, file_extensions: &Vec<String>) -> std::io::Resu
     }
     Ok(files)
 }
+
