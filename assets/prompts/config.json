@@ -4,13 +4,13 @@
             "method": "fallback",
             "model": "gpt-4o",
             "model_temperature": 0.2,
-            "file": "prompt-analysis-diagnostics.txt"
+            "file": "rust-diagnostics.txt"
         },
         {
             "method": "textDocument/completion",
             "model": "gpt-4o",
             "model_temperature": 0.2,
-            "file": "prompt-analysis-completion.txt"
+            "file": "rust-completion.txt"
         },
         {
             "method": "textDocument/codeAction",

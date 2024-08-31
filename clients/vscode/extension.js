@@ -13,7 +13,7 @@ module.exports = {
             documentSelector: [
                 {
                     scheme: "file",
-                    language: "latex"
+                    language: "rust"
                 }
             ],
         };
