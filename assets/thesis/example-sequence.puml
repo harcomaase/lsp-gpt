@@ -1,15 +1,15 @@
-@startuml example-sequence
+@startuml
+actor Kunde as k
+participant System as s
 
-actor Alice as a
-actor Bob as b
-actor Charles as c
+k -> s : Anfrage senden
+s --> k : Empfangsbestätigung
+k -> s : Anmeldedaten eingeben
+s -> s : Authentifizierung prüfen
 
-a -> b : Hi Bob!
-b --> a : Hallo Alice!
-
-a -> b : Sag mal, wie sagt man noch gleich zu dieser kleinen laenglich-eifoermigen violett-blauen Frucht?
-b --> a : Meinst du eine Zwetschge?
-a -> b : Ja genau, vielen Dank!
-b --> a : Gerne!
-
+alt Authentifizierung erfolgreich
+    s --> k : Zugriff gewährt
+else Authentifizierung fehlgeschlagen
+    s --> k : Zugriff verweigert
+end
 @enduml
