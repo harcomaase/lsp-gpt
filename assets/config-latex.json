@@ -1,7 +1,6 @@
 {
-    "languageId": "latex",
+    "languageId": "plantuml",
     "fileExtensions": [
-        "tex",
-        "bib"
+        "puml"
     ]
 }

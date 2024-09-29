@@ -27,6 +27,7 @@ mod server_capabilities;
 const BASE_FOLDER: &str = "/home/marco/dev/projects/lsp-gpt";
 const USE_WORKSPACE_FOLDERS: bool = true;
 const USE_ADDITIONAL_PARAMETERS: bool = false;
+const ADD_LINE_NUMBERS: bool = true;
 
 // the initial version is very much taken from the lsp-server example:
 // https://github.com/rust-lang/rust-analyzer/blob/master/lib/lsp-server/examples/goto_def.rs
@@ -81,7 +82,6 @@ fn from_env(key: &str) -> String {
     // else look into the environment
     std::env::var(key).expect(&format!("{key} not set as environment variable"))
 }
-
 
 fn log_invocation(
     model: &str,
@@ -154,6 +154,7 @@ fn handle_messages(
                 let prompt_config_entry =
                     application_config.prompt_config.get_or_default(&req.method);
                 let messages = create_messages(
+                    Some(&req),
                     raw_msg,
                     &application_config.language_id,
                     &application_config.file_extensions,
@@ -225,6 +226,7 @@ fn handle_messages(
                                 let prompt_config_entry =
                                     application_config.prompt_config.get_or_default(&not.method);
                                 let messages = create_messages(
+                                    None,
                                     diagnostic_request_msg,
                                     &application_config.language_id,
                                     &application_config.file_extensions,
@@ -280,7 +282,6 @@ fn map_and_return_response(response_text: &str, connection: &Connection) {
         }
     }
 }
-
 
 fn map_and_return_notification(response_text: &str, connection: &Connection) {
     match serde_json::from_str(response_text) {
@@ -377,6 +378,7 @@ fn read_file(url: &str) -> std::io::Result<String> {
 }
 
 fn create_messages(
+    req: Option<&lsp_server::Request>,
     mut raw_msg: String,
     language_id: &str,
     file_extensions: &Vec<String>,
@@ -398,7 +400,7 @@ fn create_messages(
     for workspace_document in &workspace_documents {
         messages.push(GptMessage {
             role: "system".to_string(),
-            content: serde_json::to_string(&workspace_document)?,
+            content: format_text_document(&workspace_document, req)?,
         });
     }
     // if workspace is not available or empty, use latest opened/changed document
@@ -406,7 +408,7 @@ fn create_messages(
         if let Some(item) = &latest_text_document_item {
             messages.push(GptMessage {
                 role: "system".to_string(),
-                content: serde_json::to_string(item)?,
+                content: format_text_document(item, req)?,
             });
         }
     }
@@ -424,6 +426,61 @@ fn create_messages(
     });
 
     Ok(messages)
+}
+
+fn format_text_document(
+    doc: &TextDocumentItem,
+    req: Option<&lsp_server::Request>,
+) -> std::io::Result<String> {
+    let d = if ADD_LINE_NUMBERS {
+        // when it gets hacky, it tends to get ugly
+        let position = if let Some(req) = req {
+            if let Some(v) = req.params.get("position") {
+                let line = v
+                    .get("line")
+                    .unwrap()
+                    .as_number()
+                    .unwrap()
+                    .as_u64()
+                    .unwrap() as usize;
+                let character = v
+                    .get("character")
+                    .unwrap()
+                    .as_number()
+                    .unwrap()
+                    .as_u64()
+                    .unwrap() as usize;
+                Some((line, character))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        let text_updated = doc
+            .text
+            .lines()
+            .enumerate()
+            .map(|(n, l)| {
+                if let Some((line, character)) = position {
+                    if line == n {
+                        let (prefix, suffix) = l.split_at(character);
+                        return (n, format!("{prefix}<cursor>{suffix}"));
+                    }
+                }
+                (n, l.to_string())
+            })
+            .map(|(n, l)| format!("Line {n}: {l}\n"))
+            .collect::<String>();
+        &TextDocumentItem {
+            text: text_updated,
+            ..doc.clone()
+        }
+    } else {
+        doc
+    };
+    let formatted = serde_json::to_string(d)?;
+    Ok(formatted)
 }
 
 /// extracts the contents of markdown JSON code blocks
@@ -507,4 +564,3 @@ fn collect_files(path: &PathBuf, file_extensions: &Vec<String>) -> std::io::Resu
     }
     Ok(files)
 }
-
