@@ -10,5 +10,7 @@ c -> s : ACK
 ..
 c -> s : {data}
 
+e -> e : test
+
 @EndUml
 

@@ -4,8 +4,8 @@ fn main() {
     let file_contents = fs::read_to_string("./invocations.csv").unwrap();
     let values: Vec<f64> = file_contents
         .lines()
-        .skip(774)
-        .filter(|line|line.contains("diagnostic"))
+        .skip(888)
+        .filter(|line|line.contains("references"))
         .map(|line| line.split(',').nth(2).unwrap().parse().unwrap())
         .collect();
     let sum: f64 = values.iter().sum();
