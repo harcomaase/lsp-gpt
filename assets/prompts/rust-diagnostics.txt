@@ -7,3 +7,5 @@ In case workspace documents are available, use their contents in order to give m
 Mark every wrong syntax as error, as well as anything that would prevent the diagram from being generated.
 
 Pay attention to unused actors, objects and entities, and give hints about it.
+
+Be aware of return types and statements of functions and methods. Check if they are semantically correct.
