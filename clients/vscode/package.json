@@ -31,6 +31,17 @@
 				"configuration": "./language-configuration-plantuml.json"
 			},
 			{
+				"id": "rust",
+				"extensions": [
+					".rs",
+					".toml"
+				],
+				"aliases": [
+					"Rust"
+				],
+				"configuration": "./language-configuration-plantuml.json"
+			},
+			{
 				"id": "latex",
 				"extensions": [
 					".tex",
