@@ -1,5 +1,5 @@
 {
-    "uri": "file:///home/marco/dev/projects/lsp-gpt/assets/thesis/example-sequence.puml",
+    "uri": "file:///tmp/lsp-gpt/assets/thesis/example-sequence.puml",
     "languageId": "plantuml",
     "version": 1,
     "text": "@startuml example-sequence\\n\\nactor Alice as a\\nactor Bob as b\\n\\na -> b : Hi Bob!\\nb --> a : Hallo Alice!\\na -> b : Sag mal, wie sagt man noch gleich zu dieser laenglich-eifoermigen violett-blauen Frucht?\\nb --> a : Meinst du eine Zwetschge?\\na -> b : Ja genau, vielen Dank!\\nb --> a : Gerne!\\n\\n@enduml\\n\\n\\n"

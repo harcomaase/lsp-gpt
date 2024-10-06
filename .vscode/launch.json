@@ -9,7 +9,8 @@
         "args": [
           "--extensionDevelopmentPath=${workspaceFolder}/clients/vscode",
           "--profile-temp", // temporary profile in order to disable extensions
-          "/tmp/lsp-gpt/"
+          //"/tmp/lsp-gpt/"
+          "/home/marco/dev/projects/lsp-gpt/assets/thesis/few-shot/"
         ]
       }
     ]

@@ -1,5 +1,5 @@
 {
-    "uri": "file:///home/marco/dev/projects/lsp-gpt/assets/ls-arch.puml",
+    "uri": "file:///tmp/lsp-gpt/assets/ls-arch.puml",
     "languageId": "plantuml",
     "version": 1,
     "text": "@startuml [...] \n\n@enduml\n"
