@@ -1,7 +1,7 @@
 {
     "method": "textDocument/publishDiagnostics",
     "params": {
-        "uri": "file:///home/marco/dev/projects/lsp-gpt/assets/ls-arch.puml",
+        "uri": "file:///tmp/lsp-gpt/assets/ls-arch.puml",
         "diagnostics": [
             {
                 "range": {

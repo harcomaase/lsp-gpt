@@ -25,16 +25,6 @@ To be done before the next iteration:
 - [x] refactor logging
 - [ ] per capability prompts and model
 
-## how to proceed
-- prompting domänenspezifisch (zB Banken, Krankenhaus); Nachrichten -> Methodennamen?
-- Anmeldung Arbeit:
-  - Inhalt ausreichend für Masterarbeit
-  - Formular auf Website, Kontakt mit Herrn Paap
-  - informieren über Fristen!
-- Vortrag Ende April:
-  - Anmeldung bis 22. März
-  - Prof informieren
-
 
 ## what has been done?
 
@@ -90,7 +80,7 @@ ${insert prompt from above}
     "textDocument": {
       "languageId": "plantuml",
       "text": "@startuml example\n\nactor Alice\nactor Bob\n\nAlice -> Bob : hello\nBob --> Alice : hello Alice!\n\n@enduml\n",
-      "uri": "file:///home/marco/dev/projects/lsp-gpt/assets/example.puml",
+      "uri": "file:///tmp/lsp-gpt/assets/example.puml",
       "version": 7
     }
   }
@@ -110,7 +100,7 @@ ${insert prompt from above}
       "line": 7
     },
     "textDocument": {
-      "uri": "file:///home/marco/dev/projects/lsp-gpt/assets/example.puml"
+      "uri": "file:///tmp/lsp-gpt/assets/example.puml"
     }
   }
 }

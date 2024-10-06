@@ -1,0 +1,7 @@
+{
+    "languageId": "rust",
+    "fileExtensions": [
+        "rs",
+        "toml"
+    ]
+}

@@ -1,0 +1,20 @@
+@startuml
+participant Database
+
+Database -> User: Query
+User -> Database: Response
+activate User
+User -> Database: Delete
+deactivate User
+note left of User: Database interaction
+loop Retry until success
+  User -> Database: Attempt
+end
+note right of Database: Note content
+
+actor User
+User -> Database: Update
+Database -> User: Acknowledge
+note left of Database: Check for data integrity
+
+@enduml

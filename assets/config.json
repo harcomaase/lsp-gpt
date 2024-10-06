@@ -1,7 +1,6 @@
 {
-    "languageId": "rust",
+    "languageId": "plantuml",
     "fileExtensions": [
-        "rs",
-        "toml"
+        "puml"
     ]
 }

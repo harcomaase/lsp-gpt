@@ -4,7 +4,7 @@
     "method": "textDocument/completion",
     "params": {
         "textDocument": {
-            "uri": "file:///home/marco/dev/projects/lsp-gpt/assets/ls-flow.puml"
+            "uri": "file:///tmp/lsp-gpt/assets/ls-flow.puml"
         },
         "position": {
             "line": 12,

@@ -24,8 +24,8 @@ mod application_config;
 mod gpt_adapter;
 mod server_capabilities;
 
-const BASE_FOLDER: &str = "/home/marco/dev/projects/lsp-gpt";
-const USE_WORKSPACE_FOLDERS: bool = true;
+const BASE_FOLDER: &str = "~/lsp-gpt";
+const USE_WORKSPACE_FOLDERS: bool = false;
 const USE_ADDITIONAL_PARAMETERS: bool = false;
 const ADD_LINE_NUMBERS: bool = true;
 
