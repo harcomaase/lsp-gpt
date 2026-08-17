@@ -1,7 +1,0 @@
-@startuml
-class Example {
-    +int id
-    +String name
-    +void display()
-}
-@endumlk

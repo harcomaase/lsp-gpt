@@ -1,6 +1,7 @@
 /target
 node_modules/
 secrets.txt
+invocations.csv
 package.json
 package-lock.json
 Cargo.lock
